@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 from datetime import date
+from pathlib import Path
 
 import gi
 
@@ -10,6 +11,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Soup", "3.0")
 from gi.repository import Gio, GLib, Gtk, Soup  # noqa: E402
 
+from hyprspot import __version__, update  # noqa: E402
 from hyprspot.auth import TokenStore  # noqa: E402
 from hyprspot.cache import ArtCache, load_playlists, save_playlists  # noqa: E402
 from hyprspot.cli import ACTIONS, parse_args  # noqa: E402
@@ -25,7 +27,7 @@ from hyprspot.ui.expanded import ExpandedView  # noqa: E402
 from hyprspot.ui.window import HyprspotWindow  # noqa: E402
 from dataclasses import replace  # noqa: E402
 
-from hyprspot.webapi import WebApi, fill_track, liked_playlist  # noqa: E402
+from hyprspot.webapi import WebApi, fill_track, liked_playlist, soup_transport  # noqa: E402
 
 APP_ID = "dev.hyprspot.App"
 ERROR_CLEAR_MS = 2500
@@ -50,6 +52,9 @@ class HyprspotApp(Gtk.Application):
             act = Gio.SimpleAction.new(name, None)
             act.connect("activate", lambda _a, _p, n=name: self.run_action(n))
             self.add_action(act)
+        open_url = Gio.SimpleAction.new("open-url", GLib.VariantType.new("s"))
+        open_url.connect("activate", lambda _a, url: Gio.AppInfo.launch_default_for_uri(url.get_string(), None))
+        self.add_action(open_url)
 
     # ------------------------------------------------------------------ ciclo de vida
     def do_command_line(self, cmdline: Gio.ApplicationCommandLine) -> int:
@@ -94,6 +99,7 @@ class HyprspotApp(Gtk.Application):
         self.refresh_playlists()
         self._check_soloist()
         GLib.timeout_add_seconds(SOLOIST_CHECK_S, lambda: (self._check_soloist(), True)[1])
+        update.check(soup_transport(self.session), __version__, self._notify_update)
 
     # ------------------------------------------------------------------ ações
     def run_action(self, name: str) -> None:
@@ -316,6 +322,16 @@ class HyprspotApp(Gtk.Application):
     def _check_soloist(self) -> None:
         v = installed_version()
         self.state.set_soloist_days(days_left(v[1], date.today()) if v else None)
+
+    # ------------------------------------------------------------------ versão nova
+    def _notify_update(self, version: str, url: str) -> None:
+        title, body = update.notification_text(version, __version__, str(Path(__file__).resolve().parent.parent))
+        n = Gio.Notification.new(title)
+        n.set_body(body)
+        action = Gio.Action.print_detailed_name("app.open-url", GLib.Variant("s", url))
+        n.set_default_action(action)
+        n.add_button("Ver novidades", action)
+        self.send_notification("update", n)
 
 
 def run(argv: list[str]) -> int:
