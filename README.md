@@ -182,3 +182,7 @@ Documentação de apoio:
 - especificação: `docs/specs/2026-11-18-hyprspot-design.md`
 - plano de implementação: `docs/superpowers/plans/2026-11-18-hyprspot.md`
 - comparação dos players avaliados: `reports/Alternativas de áudio Spotify Linux.md`
+
+## Licença
+
+[MIT](LICENSE). O Spotify Soloist não faz parte deste repositório: cada instalação baixa o build oficial do Spotify, sujeito aos termos do Spotify.
