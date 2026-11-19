@@ -48,6 +48,7 @@ class HyprspotApp(Gtk.Application):
         self._playlists_loading = False
         self._meta: dict = {}
         self._meta_pending: set[str] = set()
+        self._hide_hint_shown = False
         for name in (*ACTIONS.values(), "expand", "expand-search", "click-anywhere", "hide-toggle"):  # inclui "quit"
             act = Gio.SimpleAction.new(name, None)
             act.connect("activate", lambda _a, _p, n=name: self.run_action(n))
@@ -86,7 +87,8 @@ class HyprspotApp(Gtk.Application):
                                      lambda: self.run_action("collapse"), self.on_like, self.art,
                                      on_quit=lambda: self.run_action("quit"))
         self.win = HyprspotWindow(self, self.config, self.compact, self.expanded,
-                                  lambda m: save_margin(CONFIG_PATH, m), self._on_compact_key)
+                                  lambda m: save_margin(CONFIG_PATH, m), self._on_compact_key,
+                                  on_push_offscreen=self._hide_hint)
         self.win.connect("notify::is-active", self._on_active_changed)
         self.focus.connect("focus-lost", lambda *_: self._schedule_collapse())
 
@@ -322,6 +324,16 @@ class HyprspotApp(Gtk.Application):
     def _check_soloist(self) -> None:
         v = installed_version()
         self.state.set_soloist_days(days_left(v[1], date.today()) if v else None)
+
+    # ------------------------------------------------------------------ dicas
+    def _hide_hint(self) -> None:
+        """Quem empurra o widget para fora da tela provavelmente quer escondê-lo (1x por sessão)."""
+        if self._hide_hint_shown:
+            return
+        self._hide_hint_shown = True
+        n = Gio.Notification.new("Quer esconder o hyprspot?")
+        n.set_body("Super+Alt+H esconde o widget sem parar a música. O mesmo atalho mostra de novo.")
+        self.send_notification("hide-hint", n)
 
     # ------------------------------------------------------------------ versão nova
     def _notify_update(self, version: str, url: str) -> None:

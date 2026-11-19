@@ -11,6 +11,8 @@ window.hs-window > * {
   border: 1px solid rgba(192, 202, 245, 0.10);
 }
 .hs-compact { border-radius: 14px; padding: 7px 8px; }
+/* arrastando para mover: destaca o widget até soltar */
+window.hs-dragging .hs-root { border-color: #7aa2f7; }
 .hs-clip { border-radius: 14px; }
 .hs-expanded { border-radius: 16px; border-color: rgba(122, 162, 247, 0.45); background-color: rgba(26, 27, 38, 0.97); }
 

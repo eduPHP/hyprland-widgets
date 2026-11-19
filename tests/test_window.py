@@ -37,7 +37,10 @@ def win(monkeypatch):
     monkeypatch.setattr(W, "EDGES", {"top": "top", "bottom": "bottom", "left": "left", "right": "right"})
     compact = Gtk.Box()
     compact.set_size_request(320, 64)
-    w = W.HyprspotWindow(None, Config(client_id=""), compact, None, lambda m: None)
+    cursor = {"pos": None, "area": None}
+    w = W.HyprspotWindow(None, Config(client_id=""), compact, None, lambda m: None,
+                         cursor_pos=lambda: cursor["pos"], screen_area=lambda x, y: cursor["area"])
+    w.fake_cursor = cursor
     w.get_width = lambda: 320
     w.get_height = lambda: 64
     yield w, ls
@@ -88,3 +91,157 @@ def test_motion_outside_without_grab_does_nothing(win):
     n = len(ls.modes)
     w._on_motion(None, 296, -30)
     assert len(ls.modes) == n
+
+
+class FakeGesture:
+    def __init__(self):
+        self.states = []
+
+    def set_state(self, state):
+        self.states.append(state)
+
+
+def test_drag_margin_follows_the_anchor():
+    from hyprspot.ui.window import drag_margin
+    # ancorado embaixo à direita: arrastar para a esquerda/cima aumenta a margem
+    assert drag_margin((16, 16), -200, -50, right=True, bottom=True) == (216, 66)
+    # ancorado em cima à esquerda: arrastar para a direita/baixo aumenta a margem
+    assert drag_margin((16, 16), 200, 50, right=False, bottom=False) == (216, 66)
+    assert drag_margin((16, 16), 500, 500, right=True, bottom=True) == (0, 0)   # nunca negativa
+
+
+def test_left_drag_follows_the_cursor_live(win):
+    # touchpad: arrastar com o botão esquerdo (um dedo) move o widget; o botão do meio é difícil.
+    # A posição vem do cursor na tela (Hyprland), não do evento do GTK, que muda quando a
+    # janela anda: assim o widget acompanha sem tremer e para exatamente onde soltou.
+    w, _ls = win
+    saved = []
+    w._on_margin_changed = saved.append
+    w.margin = (16, 16)
+    w._horiz, w._vert = "right", "bottom"
+    g = FakeGesture()
+    w.fake_cursor["pos"] = (1400.0, 850.0)
+    w._drag_begin(g, 0, 0, left=True)
+    w.fake_cursor["pos"] = (1390.0, 845.0)
+    w._drag_update(g, -10, -5, left=True)           # passou do limite: virou arrasto
+    assert g.states and w.has_css_class("hs-dragging")
+    w.fake_cursor["pos"] = (1300.0, 830.0)
+    w._drag_tick()
+    assert w.margin == (116, 36)                     # já andou, antes de soltar
+    w.fake_cursor["pos"] = (1250.0, 700.0)
+    w._drag_update(g, 999, 999, left=True)          # o deslocamento do GTK é ignorado
+    w._drag_end(g, 999, 999, left=True)
+    assert w.margin == (166, 166) and saved == [(166, 166)]
+    assert not w.has_css_class("hs-dragging")
+
+
+def test_left_drag_without_hyprland_moves_on_release(win):
+    w, _ls = win
+    saved = []
+    w._on_margin_changed = saved.append
+    w.margin = w._drag_start = (16, 16)
+    w._horiz, w._vert = "right", "bottom"
+    g = FakeGesture()                            # cursor_pos devolve None: sem socket do Hyprland
+    w._drag_begin(g, 0, 0, left=True)
+    w._drag_update(g, -100, -20, left=True)
+    assert w.margin == (16, 16)                  # sem a posição na tela, só move ao soltar
+    assert g.states and w.has_css_class("hs-dragging")
+    w._drag_end(g, -100, -20, left=True)
+    assert w.margin == (116, 36) and saved == [(116, 36)]
+    assert not w.has_css_class("hs-dragging")
+
+
+def test_small_left_motion_is_still_a_click(win):
+    w, _ls = win
+    saved = []
+    w._on_margin_changed = saved.append
+    w.margin = w._drag_start = (16, 16)
+    g = FakeGesture()
+    w._drag_begin(g, 0, 0, left=True)
+    w._drag_update(g, 3, 2, left=True)
+    w._drag_end(g, 3, 2, left=True)
+    assert g.states == [] and w.margin == (16, 16) and saved == []
+
+
+def test_left_drag_is_ignored_in_expanded_mode(win):
+    # no expandido o botão esquerdo é das listas, do progresso e do volume
+    w, _ls = win
+    w.mode = "expanded"
+    w.margin = w._drag_start = (16, 16)
+    g = FakeGesture()
+    w._drag_begin(g, 0, 0, left=True)
+    w._drag_update(g, -100, 0, left=True)
+    w._drag_end(g, -100, 0, left=True)
+    assert g.states == [] and w.margin == (16, 16)
+
+
+def test_middle_drag_works_in_both_modes(win):
+    w, _ls = win
+    w.mode = "expanded"
+    w.margin = w._drag_start = (16, 16)
+    w._horiz, w._vert = "right", "bottom"
+    g = FakeGesture()
+    w._drag_begin(g, 0, 0, left=False)
+    w._drag_update(g, -40, 0, left=False)
+    w._drag_end(g, -40, 0, left=False)
+    assert w.margin == (56, 16)
+
+
+def test_clamp_margin_keeps_widget_inside_area():
+    from hyprspot.ui.window import clamp_margin
+    area, size = (1600, 874), (320, 64)
+    assert clamp_margin((100, 100), size, area) == (100, 100)
+    assert clamp_margin((5000, 5000), size, area) == (1280, 810)
+    assert clamp_margin((-20, 900), size, area) == (0, 810)
+    assert clamp_margin((50, 50), (2000, 1000), area) == (0, 0)   # maior que a tela: encosta na borda
+
+
+def test_drag_off_screen_stops_at_the_nearest_visible_spot(win):
+    # arrastar para fora da tela: o widget para na borda e é ali que fica salvo
+    w, _ls = win
+    saved = []
+    w._on_margin_changed = saved.append
+    w.margin = (16, 16)
+    w._horiz, w._vert = "right", "bottom"
+    w.fake_cursor["area"] = (1600, 874)
+    g = FakeGesture()
+    w.fake_cursor["pos"] = (1400.0, 850.0)
+    w._drag_begin(g, 0, 0, left=True)
+    w.fake_cursor["pos"] = (-300.0, -200.0)          # bem além do canto de cima à esquerda
+    w._drag_update(g, -50, -50, left=True)
+    w._drag_tick()
+    assert w.margin == (1280, 810)                   # 1600−320, 874−64
+    w._drag_end(g, 0, 0, left=True)
+    assert saved == [(1280, 810)]
+
+
+def _drag_to(w, pos):
+    g = FakeGesture()
+    w.fake_cursor["pos"] = (1400.0, 850.0)
+    w._drag_begin(g, 0, 0, left=True)
+    w.fake_cursor["pos"] = pos
+    w._drag_update(g, -50, -50, left=True)
+    w._drag_end(g, 0, 0, left=True)
+
+
+def test_pushing_off_screen_triggers_the_hide_hint(win):
+    # quem tenta tirar o widget da tela provavelmente quer escondê-lo: o app avisa do atalho
+    w, _ls = win
+    hints = []
+    w._on_push_offscreen = lambda: hints.append(1)
+    w.margin = (16, 16)
+    w._horiz, w._vert = "right", "bottom"
+    w.fake_cursor["area"] = (1600, 874)
+    _drag_to(w, (1400.0 + 200, 850.0))              # 200 px além da borda direita
+    assert hints == [1]
+
+
+def test_reaching_the_edge_is_not_a_push(win):
+    w, _ls = win
+    hints = []
+    w._on_push_offscreen = lambda: hints.append(1)
+    w.margin = (16, 16)
+    w._horiz, w._vert = "right", "bottom"
+    w.fake_cursor["area"] = (1600, 874)
+    _drag_to(w, (1400.0 + 40, 850.0))               # encosta na borda e passa só 24 px
+    assert hints == [] and w.margin == (0, 16)

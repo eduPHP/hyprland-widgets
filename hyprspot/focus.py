@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import time
 
@@ -29,6 +30,58 @@ def hyprctl(*args: str) -> str:
         return subprocess.run(["hyprctl", *args], capture_output=True, text=True, timeout=2).stdout
     except (OSError, subprocess.TimeoutExpired):
         return ""
+
+
+def hypr_socket_path() -> str | None:
+    sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+    run = os.environ.get("XDG_RUNTIME_DIR")
+    return os.path.join(run, "hypr", sig, ".socket.sock") if sig and run else None
+
+
+def hypr_request(cmd: str) -> bytes | None:
+    """Pergunta direto ao socket do Hyprland (~0,3 ms; rápido para fazer a cada quadro)."""
+    path = hypr_socket_path()
+    if not path:
+        return None
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(0.2)
+            s.connect(path)
+            s.sendall(cmd.encode())
+            data = b""
+            while chunk := s.recv(65536):
+                data += chunk
+        return data
+    except OSError:
+        return None
+
+
+def hypr_cursor() -> tuple[float, float] | None:
+    """Posição do cursor na tela (coordenadas lógicas)."""
+    try:
+        pos = json.loads(hypr_request("j/cursorpos") or b"")
+        return float(pos["x"]), float(pos["y"])
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def hypr_usable_area(x: float, y: float) -> tuple[int, int] | None:
+    """Largura e altura úteis (lógicas, sem o espaço reservado por painéis) do monitor em (x, y)."""
+    try:
+        mons = json.loads(hypr_request("j/monitors") or b"")
+        areas = []
+        for m in mons:
+            w, h = m["width"] / m["scale"], m["height"] / m["scale"]
+            if m.get("transform", 0) % 2:
+                w, h = h, w
+            left, top, right, bottom = m.get("reserved") or (0, 0, 0, 0)
+            area = (round(w - left - right), round(h - top - bottom))
+            if m["x"] <= x < m["x"] + w and m["y"] <= y < m["y"] + h:
+                return area
+            areas.append((m.get("focused"), area))
+        return next((a for f, a in areas if f), areas[0][1] if areas else None)
+    except (ValueError, KeyError, TypeError, ZeroDivisionError):
+        return None
 
 
 def cursor_outside_layer(namespace: str = "hyprspot") -> bool | None:
