@@ -25,9 +25,18 @@ Por isso a configuração pede duas coisas, as duas gratuitas e só suas: uma **
 ## Requisitos
 
 - Hyprland 0.53 ou mais novo
-- conta **Spotify Premium**
+- conta **Spotify Premium** (veja abaixo por quê)
 - processador x86_64 ou arm64 (o Spotify só publica o Soloist para esses dois)
 - Python 3.11+, GTK 4, gtk4-layer-shell e libsoup 3. O instalador cuida disso em distros com `apt` (Ubuntu, Debian), `pacman` (Arch, Omarchy) ou `dnf` (Fedora).
+
+### Por que Premium?
+
+O Premium é exigido em dois pontos da configuração:
+
+- **Soloist:** a chave de API do Soloist precisa ser criada por uma conta Premium. Depois que ele está rodando, contas Free e Premium conseguem se conectar e tocar ([anúncio do Spotify](https://developer.spotify.com/blog/2026-08-13-introducing-spotify-soloist)).
+- **Web API:** o app usado para playlists, busca e curtidas fica em modo de desenvolvimento, e o dono desse app precisa ter Premium.
+
+Na prática, quem tem Premium configura e usa tudo sozinho. Com uma conta Free, em teoria daria para usar se alguém com Premium criasse a chave do Soloist e o app da Web API e autorizasse a sua conta no app. Isso não foi testado.
 
 ## Instalação
 
