@@ -232,6 +232,7 @@ class AppState(GObject.Object):
         self.playlists: list[Playlist] = []
         self.search_query = ""
         self.search_results: list[Track] = []
+        self.search_playlists: list[Playlist] = []
         self.ui_mode = "compact"
         self.tab = "playlists"
         self.error: str | None = None
@@ -261,9 +262,11 @@ class AppState(GObject.Object):
             self.queue_context, self.queue = context_uri, list(tracks)
             self.emit("changed", "queue")
 
-    def set_search(self, query: str, results: list[Track]) -> None:
-        if (query, results) != (self.search_query, self.search_results):
-            self.search_query, self.search_results = query, list(results)
+    def set_search(self, query: str, results: list[Track], playlists: list[Playlist] | None = None) -> None:
+        """`playlists=None` mantém as atuais (páginas seguintes da busca só trazem músicas)."""
+        pls = self.search_playlists if playlists is None else list(playlists)
+        if (query, results, pls) != (self.search_query, self.search_results, self.search_playlists):
+            self.search_query, self.search_results, self.search_playlists = query, list(results), pls
             self.emit("changed", "search")
 
     def set_ui(self, mode: str | None = None, tab: str | None = None) -> None:

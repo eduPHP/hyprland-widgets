@@ -204,3 +204,50 @@ def test_open_page_follows_the_queue(nav):
     state.set_queue("spotify:playlist:a", [Track("spotify:track:n1", "Próxima", "B")])
     page = v.pages["playlists"]
     assert page.rendered() == 2 and page.list_box.get_visible()
+
+
+# ---------------------------------------------------------------- busca com playlists
+def _search_state(state, n_playlists=8):
+    from hyprspot.model import Playlist, Track
+    pls = [Playlist(f"spotify:playlist:s{i}", f"Lista {i}", "dono", None) for i in range(n_playlists)]
+    tracks = [Track(f"spotify:track:t{i}", f"Música {i}", "B") for i in range(3)]
+    state.set_search("rock", tracks, pls)
+    return pls, tracks
+
+
+def test_search_shows_at_most_five_playlists(nav):
+    state, v, _ = nav
+    _search_state(state)
+    n, r = 0, v.sr_pl_list.get_first_child()
+    while r is not None:
+        n, r = n + 1, r.get_next_sibling()
+    assert n == 5 and v.sr_pl_box.get_visible()
+
+
+def test_search_without_playlists_hides_section(nav):
+    state, v, _ = nav
+    _search_state(state, 0)
+    assert not v.sr_pl_box.get_visible()
+
+
+def test_enter_still_plays_first_track(nav):
+    state, v, calls = nav
+    _, tracks = _search_state(state)
+    sent = []
+    v.on_command = lambda n, f: sent.append((n, f))
+    v._play_selected_or_first()
+    assert sent == [("play", {"uri": tracks[0].uri})]
+
+
+def test_search_playlist_opens_in_search_tab(nav):
+    state, v, calls = nav
+    pls, _ = _search_state(state)
+    v.sr_pl_list.emit("row-activated", v.sr_pl_list.get_row_at_index(1))
+    assert calls == [("open", pls[1].uri, "search")]
+
+
+def test_more_search_pages_keep_playlists(nav):
+    state, v, _ = nav
+    pls, tracks = _search_state(state)
+    state.set_search("rock", tracks + tracks)          # página seguinte: só músicas
+    assert state.search_playlists == pls

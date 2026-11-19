@@ -146,3 +146,12 @@ def test_play_at_retries_once_on_404(tmp_path):
     t.reply(2, data=DEVICES)
     t.reply(3, status=404, data={"error": {"status": 404}})
     assert len(got) == 1 and isinstance(got[0], str) and len(t.calls) == 4
+
+
+def test_search_also_delivers_playlists(tmp_path):
+    api, _ = api_with(tmp_path, FRESH)
+    got, pls = [], []
+    api.search("rock", 0, lambda items, err: got.append(len(items)), on_playlists=pls.append)
+    api._transport.reply(0, data={"tracks": {"items": []}, "playlists": {"items": [
+        {"uri": "spotify:playlist:a", "name": "A", "owner": {"display_name": "x"}}]}})
+    assert got == [0] and [p.uri for p in pls[0]] == ["spotify:playlist:a"]

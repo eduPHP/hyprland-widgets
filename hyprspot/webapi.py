@@ -65,6 +65,10 @@ def parse_search(body: dict) -> list[Track]:
     return [_track(t) for t in ((body.get("tracks") or {}).get("items") or []) if t and t.get("uri")]
 
 
+def parse_search_playlists(body: dict) -> list[Playlist]:
+    return parse_playlists((body or {}).get("playlists") or {})[0]
+
+
 def liked_playlist(user_id: str) -> Playlist:
     """'Músicas Curtidas' como contexto de verdade (o mesmo URI que os apps oficiais usam)."""
     return Playlist(f"spotify:user:{user_id}:collection", "Músicas Curtidas", "Sua biblioteca", None)
@@ -72,7 +76,7 @@ def liked_playlist(user_id: str) -> Playlist:
 
 def search_url(q: str, offset: int) -> str:
     return API + "/search?" + urllib.parse.urlencode(
-        {"q": q, "type": "track", "limit": SEARCH_LIMIT, "offset": offset})
+        {"q": q, "type": "track,playlist", "limit": SEARCH_LIMIT, "offset": offset})
 
 
 def retry_delay(status: int, headers: dict, body: dict | None) -> float | None:
@@ -222,8 +226,18 @@ class WebApi:
 
         self._request("GET", "/me/playlists?limit=50", page)
 
-    def search(self, q: str, offset: int, cb: Callable[[list[Track] | None, str | None], None]) -> None:
-        self._request("GET", search_url(q, offset), lambda _s, d, e: cb(None, e) if e else cb(parse_search(d or {}), None))
+    def search(self, q: str, offset: int, cb: Callable[[list[Track] | None, str | None], None],
+               on_playlists: Callable[[list[Playlist]], None] | None = None) -> None:
+        """Músicas em `cb`; as playlists da mesma resposta (se pedidas) vão antes, em `on_playlists`."""
+        def done(_s, d, e):
+            if e:
+                cb(None, e)
+                return
+            if on_playlists is not None:
+                on_playlists(parse_search_playlists(d or {}))
+            cb(parse_search(d or {}), None)
+
+        self._request("GET", search_url(q, offset), done)
 
     def track(self, uri: str, cb: Callable[[Track | None], None]) -> None:
         tid = uri.rsplit(":", 1)[-1]

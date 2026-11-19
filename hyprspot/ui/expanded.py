@@ -23,6 +23,7 @@ OnCommand = Callable[[str, dict], None]
 SEARCH_DEBOUNCE_MS = 250
 SEEK_DEBOUNCE_MS = 150
 USER_DRAG_HOLD_MS = 600
+SEARCH_PLAYLISTS = 5
 REPEAT_NEXT = {"off": "context", "context": "track", "track": "off"}
 
 
@@ -130,10 +131,10 @@ class ExpandedView(Gtk.Box):
 
     def _build_search(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10)
-        self.entry = Gtk.SearchEntry(placeholder_text="Buscar músicas ou artistas")
+        self.entry = Gtk.SearchEntry(placeholder_text="Buscar músicas ou playlists")
         self.entry.add_css_class("hs-search")
         self.entry.set_search_delay(SEARCH_DEBOUNCE_MS)
-        self.entry.update_property([Gtk.AccessibleProperty.LABEL], ["Buscar músicas ou artistas"])
+        self.entry.update_property([Gtk.AccessibleProperty.LABEL], ["Buscar músicas ou playlists"])
         self.entry.connect("search-changed", self._on_search_changed)
         self.entry.connect("activate", lambda *_: self._play_selected_or_first())
         ek = Gtk.EventControllerKey()
@@ -144,9 +145,22 @@ class ExpandedView(Gtk.Box):
         self.sr_hint.set_wrap(True)
         self.sr_hint.set_use_markup(True)
         box.append(self.sr_hint)
+        # playlists (até 5) acima das músicas, como no celular; Enter e ↑↓ continuam só nas músicas
+        results = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.sr_pl_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.sr_pl_box.append(label("Playlists", "hs-section"))
+        self.sr_pl_list = make_list()
+        self.sr_pl_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.sr_pl_list.connect("row-activated", lambda _l, row: self._activate_search_playlist(row.uri))
+        self.sr_pl_box.append(self.sr_pl_list)
+        self.sr_tr_label = label("Músicas", "hs-section")
+        results.append(self.sr_pl_box)
+        results.append(self.sr_tr_label)
         self.sr_list = make_list()
         self.sr_list.connect("row-activated", lambda _l, row: self.on_command("play", {"uri": row.uri}))
-        self.sr_scroll = self._scrolled(self.sr_list)
+        results.append(self.sr_list)
+        self._sr_results = results
+        self.sr_scroll = self._scrolled(results)
         self.sr_scroll.get_vadjustment().connect("value-changed", self._maybe_load_more)
         box.append(self.sr_scroll)
         return box
@@ -234,6 +248,11 @@ class ExpandedView(Gtk.Box):
         if p is not None:
             self.on_open_playlist(p, tab)
 
+    def _activate_search_playlist(self, uri: str) -> None:
+        p = next((p for p in self.state.search_playlists if p.uri == uri), None)
+        if p is not None:
+            self.on_open_playlist(p, "search")
+
     def open_playlist(self, playlist: Playlist, tab: str) -> None:
         page = self.pages[tab]
         page.show(playlist, "Playlists" if tab == "playlists" else "Buscar")
@@ -299,7 +318,8 @@ class ExpandedView(Gtk.Box):
 
     def _scroll_to(self, row: Gtk.ListBoxRow) -> None:
         adj = self.sr_scroll.get_vadjustment()
-        y = row.get_index() * 46
+        pt = row.translate_coordinates(self._sr_results, 0, 0)  # a seção de playlists fica acima
+        y = pt[1] if pt else row.get_index() * 46
         if y < adj.get_value():
             adj.set_value(y)
         elif y + 46 > adj.get_value() + adj.get_page_size():
@@ -385,13 +405,17 @@ class ExpandedView(Gtk.Box):
 
     def _refresh_search(self) -> None:
         q, results = self.state.search_query, self.state.search_results
+        pls = self.state.search_playlists[:SEARCH_PLAYLISTS] if q else []
         self._loading_more = False
+        replace_rows(self.sr_pl_list, [playlist_row(p, self.art) for p in pls])
+        self.sr_pl_box.set_visible(bool(pls))
+        self.sr_tr_label.set_visible(bool(pls) and bool(results))
         replace_rows(self.sr_list, [track_row(t, self.art) for t in results])
         if not q:
             msg = "Digite para buscar. <span font_family='JetBrains Mono' foreground='#c0caf5'>Enter</span> toca o primeiro resultado."
         elif self.state.error:
             msg = f"<span foreground='#f7768e'>{GLib.markup_escape_text(self.state.error)}</span>"
-        elif not results:
+        elif not results and not pls:
             msg = f"Nada encontrado para “{GLib.markup_escape_text(q)}”."
         else:
             msg = ""
@@ -403,7 +427,8 @@ class ExpandedView(Gtk.Box):
 
     def _mark_active(self) -> None:
         pb = self.state.playback
-        for lb, key in ((self.pl_list, pb.context_uri), (self.sr_list, pb.track.uri if pb.track else None)):
+        for lb, key in ((self.pl_list, pb.context_uri), (self.sr_pl_list, pb.context_uri),
+                        (self.sr_list, pb.track.uri if pb.track else None)):
             row = lb.get_first_child()
             while row is not None:
                 row.set_active(bool(key) and row.uri == key)

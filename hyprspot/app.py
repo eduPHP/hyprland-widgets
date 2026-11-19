@@ -345,20 +345,22 @@ class HyprspotApp(Gtk.Application):
         self._search_seq += 1
         seq = self._search_seq
         if not q:
-            self.state.set_search("", [])
+            self.state.set_search("", [], [])
             return
+        found: dict = {}  # playlists chegam junto com as músicas, só na 1ª página
 
         def got(items, err):
             if seq != self._search_seq:
                 return
             if err:
                 self._flash_error(err)
-                self.state.set_search(q, self.state.search_results if offset else [])
+                self.state.set_search(q, self.state.search_results if offset else [], None if offset else [])
                 return
             base = self.state.search_results if offset else []
-            self.state.set_search(q, base + items)
+            self.state.set_search(q, base + items, found.get("playlists"))
 
-        self.api.search(q, offset, got)
+        self.api.search(q, offset, got,
+                        on_playlists=(lambda pls: found.update(playlists=pls)) if offset == 0 else None)
 
     def on_like(self) -> None:
         pb = self.state.playback
