@@ -1,4 +1,4 @@
-"""Gera as imagens do README com dados fictícios (músicas, artistas, playlists e capas inventados).
+"""Gera as imagens do README com dados de exemplo (músicas de rock conhecidas; playlists e capas inventadas).
 
     python3 scripts/make_screenshots.py [pasta]     # padrão: docs/screenshots
 
@@ -47,24 +47,24 @@ SCALE = 2          # imagens em 2x para ficarem nítidas
 PAD = 28           # moldura ao redor do widget
 BG = ((0.11, 0.12, 0.20), (0.27, 0.16, 0.34))  # degradê do "papel de parede"
 
-NOW = Track("spotify:track:fake01", "Maré Alta", "Lúcia Ventura", "Litoral", 242_000, "art:1")
+NOW = Track("spotify:track:fake01", "Highway Star", "Deep Purple", "Machine Head", 365_000, "art:1")
 PLAYLISTS = [
     Playlist("spotify:user:fake:collection", "Músicas Curtidas", "Sua biblioteca", None),
-    Playlist("spotify:playlist:p1", "Bossa ao entardecer", "marina.s", "art:2"),
-    Playlist("spotify:playlist:p2", "Foco profundo", "lofi.lab", "art:3"),
-    Playlist("spotify:playlist:p3", "Estrada 2026", "joao.p", "art:4"),
-    Playlist("spotify:playlist:p4", "Indie da semana", "radar", "art:5"),
-    Playlist("spotify:playlist:p5", "Lo-fi para codar", "devbeats", "art:6"),
-    Playlist("spotify:playlist:p6", "Clássicos de garagem", "pedro.r", "art:7"),
+    Playlist("spotify:playlist:p1", "Rock Clássico", "rockzone", "art:2"),
+    Playlist("spotify:playlist:p2", "Hard Rock dos Anos 80", "pedro.r", "art:3"),
+    Playlist("spotify:playlist:p3", "Grunge Anos 90", "seattle.fm", "art:4"),
+    Playlist("spotify:playlist:p4", "Rock Nacional", "radar", "art:5"),
+    Playlist("spotify:playlist:p5", "Riffs para codar", "devbeats", "art:6"),
+    Playlist("spotify:playlist:p6", "Estrada e Guitarra", "joao.p", "art:7"),
 ]
-QUERY = "maré"
+QUERY = "highway"
 RESULTS = [
     NOW,
-    Track("spotify:track:fake02", "Maré Cheia", "Os Faroleiros", "", 214_000, "art:8"),
-    Track("spotify:track:fake03", "Sob a Maré", "Lúcia Ventura, Duo Areia", "", 167_000, "art:9"),
-    Track("spotify:track:fake04", "Maré de Março", "Banda Coral", "", 176_000, "art:10"),
-    Track("spotify:track:fake05", "Maré Mansa", "Trio Atlântico", "", 198_000, "art:11"),
-    Track("spotify:track:fake06", "Contra a Maré", "Noite Clara", "", 231_000, "art:12"),
+    Track("spotify:track:fake02", "Highway to Hell", "AC/DC", "", 208_000, "art:8"),
+    Track("spotify:track:fake03", "Life Is a Highway", "Tom Cochrane", "", 266_000, "art:9"),
+    Track("spotify:track:fake04", "Highway Tune", "Greta Van Fleet", "", 276_000, "art:10"),
+    Track("spotify:track:fake05", "Lost Highway", "Bon Jovi", "", 233_000, "art:11"),
+    Track("spotify:track:fake06", "Highway Chile", "The Jimi Hendrix Experience", "", 212_000, "art:12"),
 ]
 
 
@@ -176,7 +176,7 @@ def widget_shots(out: Path, done) -> None:
         done()
         return False
 
-    GLib.timeout_add(900, step1)
+    GLib.timeout_add(2500, step1)  # com menos tempo o compositor ainda não desenhou e a imagem sai vazia
 
 
 def setup_shots(out: Path, done) -> None:
