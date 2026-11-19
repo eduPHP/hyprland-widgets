@@ -21,6 +21,7 @@ ERR_OFFLINE = "Sem conexão com o Spotify"
 ERR_QUOTA = "Limite da API atingido, tentando de novo em 1 min"
 ERR_AUTH = "Login expirado: rode hyprspot login"
 ERR_GENERIC = "Erro na API do Spotify"
+ERR_NO_DEVICE = "O hyprspot não aparece como aparelho no Spotify"
 
 
 # ---------------------------------------------------------------- funções puras
@@ -128,6 +129,7 @@ class WebApi:
         self._transport: Transport = soup_transport(session or Soup.Session())
         self._blocked_until = 0.0
         self._refreshing: list[Callable[[str | None], None]] = []
+        self._device_id: str | None = None
 
     # -- token: cb(None) = ok, cb(ERR_*) = falha --
     def _ensure_token(self, cb: Callable[[str | None], None]) -> None:
@@ -236,6 +238,40 @@ class WebApi:
     def is_liked(self, uri: str, cb: Callable[[bool | None], None]) -> None:
         self._request("GET", "/me/library/contains?" + urllib.parse.urlencode({"uris": uri}),
                       lambda _s, d, e: cb(None if e or not isinstance(d, list) or not d else bool(d[0])))
+
+    def play_at(self, device_name: str, context_uri: str, track_uri: str,
+                cb: Callable[[str | None], None]) -> None:
+        """Toca `context_uri` a partir de `track_uri` no aparelho do hyprspot (o Soloist não sabe fazer isso)."""
+        body = {"context_uri": context_uri, "offset": {"uri": track_uri}}
+
+        def play(device_id: str, retry: bool):
+            def done(status, _d, err):
+                if status == 404 and retry:  # o id muda quando o Soloist reinicia
+                    self._device_id = None
+                    with_device(False)
+                    return
+                cb(err)
+            self._request("PUT", f"/me/player/play?device_id={urllib.parse.quote(device_id)}", done, body=body)
+
+        def with_device(retry: bool):
+            if self._device_id:
+                play(self._device_id, retry)
+                return
+
+            def got(_s, d, err):
+                if err:
+                    cb(err)
+                    return
+                dev = next((x for x in (d or {}).get("devices", []) if x.get("name") == device_name), None)
+                if not dev or not dev.get("id"):
+                    cb(ERR_NO_DEVICE)
+                    return
+                self._device_id = dev["id"]
+                play(self._device_id, retry)
+
+            self._request("GET", "/me/player/devices", got)
+
+        with_device(True)
 
     def set_liked(self, uri: str, liked: bool, cb: Callable[[bool], None]) -> None:
         self._request("PUT" if liked else "DELETE", "/me/library", lambda _s, _d, e: cb(e is None), body={"uris": [uri]})
