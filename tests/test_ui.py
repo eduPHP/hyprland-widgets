@@ -119,3 +119,88 @@ def test_player_buttons_show_their_shortcut(which):
     assert v.prev.get_tooltip_text() == "Faixa anterior (←)"
     assert v.next.get_tooltip_text() == "Próxima faixa (→)"
     assert v.play.get_tooltip_text() == "Tocar (Espaço)"
+
+
+# ---------------------------------------------------------------- navegação até a tela da playlist
+@pytest.fixture
+def nav():
+    import gi
+    gi.require_version("Gtk", "4.0")
+    from gi.repository import Gtk
+    Gtk.init()
+    from hyprspot.model import Playlist
+    from hyprspot.state import AppState
+    from hyprspot.ui.expanded import ExpandedView
+
+    calls = []
+    state = AppState()
+    state.set_playlists([Playlist("spotify:playlist:a", "Rock", "eu", None)])
+    v = ExpandedView(state, lambda n, f: calls.append(("cmd", n)), lambda *_: None,
+                     lambda: calls.append(("collapse",)), lambda: None, NoArt(),
+                     on_open_playlist=lambda p, tab: calls.append(("open", p.uri, tab)),
+                     on_play_playlist=lambda uri, sh: calls.append(("play", uri, sh)),
+                     on_pick_track=lambda ctx, uri: calls.append(("pick", ctx, uri)))
+    return state, v, calls
+
+
+def test_expanded_is_600_tall():
+    from hyprspot.ui.expanded import ExpandedView
+    assert (ExpandedView.WIDTH, ExpandedView.HEIGHT) == (360, 600)
+
+
+def test_clicking_playlist_calls_open(nav):
+    state, v, calls = nav
+    v.pl_list.emit("row-activated", v.pl_list.get_row_at_index(0))
+    assert calls == [("open", "spotify:playlist:a", "playlists")]
+
+
+def test_escape_goes_back_before_collapsing(nav):
+    from gi.repository import Gdk
+    state, v, calls = nav
+    v.open_playlist(state.playlists[0], "playlists")
+    assert v.page_open("playlists")
+    assert v._on_key(None, Gdk.KEY_Escape, 0, 0) is True
+    assert not v.page_open("playlists") and calls == []
+    v._on_key(None, Gdk.KEY_Escape, 0, 0)
+    assert calls == [("collapse",)]
+
+
+def test_switching_tabs_keeps_open_page(nav):
+    state, v, _ = nav
+    v.open_playlist(state.playlists[0], "playlists")
+    v.show_tab("search")
+    v.show_tab("playlists")
+    assert v.page_open("playlists")
+
+
+def test_slash_returns_to_search_results(nav):
+    from gi.repository import Gdk
+    state, v, _ = nav
+    v.show_tab("search")
+    v.open_playlist(state.playlists[0], "search")
+    v.show_tab("playlists")
+    v._on_key(None, Gdk.KEY_slash, 0, 0)
+    assert state.tab == "search" and not v.page_open("search")
+
+
+def test_page_buttons_reach_the_app(nav):
+    from hyprspot.model import Track
+    state, v, calls = nav
+    state.set_queue("spotify:playlist:a", [Track("spotify:track:x", "X", "B")])
+    v.open_playlist(state.playlists[0], "playlists")
+    page = v.pages["playlists"]
+    page.shuffle_btn.emit("clicked")
+    page.list.emit("row-activated", page.list.get_row_at_index(0))
+    assert calls == [("play", "spotify:playlist:a", True), ("pick", "spotify:playlist:a", "spotify:track:x")]
+
+
+def test_open_page_follows_the_queue(nav):
+    from hyprspot.model import Track
+    from hyprspot.state import Playback
+    state, v, _ = nav
+    v.open_playlist(state.playlists[0], "playlists")
+    state.set_playback(Playback(connected=True, track=Track("spotify:track:now", "Agora", "B"),
+                                context_uri="spotify:playlist:a"))
+    state.set_queue("spotify:playlist:a", [Track("spotify:track:n1", "Próxima", "B")])
+    page = v.pages["playlists"]
+    assert page.rendered() == 2 and page.list_box.get_visible()

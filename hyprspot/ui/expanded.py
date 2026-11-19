@@ -16,6 +16,8 @@ from hyprspot.ui.common import (KEY_NEXT, KEY_PLAY, KEY_PREV, icon_button, label
 from hyprspot.ui.compact import context_name  # noqa: E402
 from hyprspot.ui.cover import ArtLoader, Cover  # noqa: E402
 from hyprspot.ui.lists import make_list, playlist_row, replace_rows, track_row  # noqa: E402
+from hyprspot.ui.playlist_page import PlaylistPage  # noqa: E402
+from hyprspot.model import Playlist  # noqa: E402
 
 OnCommand = Callable[[str, dict], None]
 SEARCH_DEBOUNCE_MS = 250
@@ -25,15 +27,21 @@ REPEAT_NEXT = {"off": "context", "context": "track", "track": "off"}
 
 
 class ExpandedView(Gtk.Box):
-    WIDTH, HEIGHT = 360, 520
+    WIDTH, HEIGHT = 360, 600
 
     def __init__(self, state: AppState, on_command: OnCommand, on_search: Callable[[str, int], None],
                  on_collapse: Callable[[], None], on_like: Callable[[], None], art: ArtLoader,
-                 on_quit: Callable[[], None] | None = None):
+                 on_quit: Callable[[], None] | None = None,
+                 on_open_playlist: Callable[[Playlist, str], None] | None = None,
+                 on_play_playlist: Callable[[str, bool], None] | None = None,
+                 on_pick_track: Callable[[str, str], None] | None = None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.state, self.on_command, self.on_search, self.on_like = state, on_command, on_search, on_like
         self.on_collapse = on_collapse
         self.on_quit = on_quit or (lambda: None)
+        self.on_open_playlist = on_open_playlist or (lambda p, tab: self.on_command("play", {"uri": p.uri}))
+        self.on_play_playlist = on_play_playlist or (lambda uri, shuffle: None)
+        self.on_pick_track = on_pick_track or (lambda ctx, uri: None)
         self.art = art
         self.set_size_request(self.WIDTH, self.HEIGHT)
         self.add_css_class("hs-root")
@@ -46,8 +54,11 @@ class ExpandedView(Gtk.Box):
 
         self.append(self._build_header())
         self.stack = Gtk.Stack(vexpand=True, transition_type=Gtk.StackTransitionType.NONE)
-        self.stack.add_named(self._build_playlists(), "playlists")
-        self.stack.add_named(self._build_search(), "search")
+        # cada aba tem a sua pilha: a lista e, por cima, a tela de uma playlist
+        self.navs: dict[str, Gtk.Stack] = {}
+        self.pages: dict[str, PlaylistPage] = {}
+        self.stack.add_named(self._nav("playlists", self._build_playlists()), "playlists")
+        self.stack.add_named(self._nav("search", self._build_search()), "search")
         self.append(self.stack)
         self.append(self._build_footer())
 
@@ -94,9 +105,22 @@ class ExpandedView(Gtk.Box):
         sw.set_child(child)
         return sw
 
+    def _nav(self, tab: str, root: Gtk.Widget) -> Gtk.Stack:
+        nav = Gtk.Stack(transition_type=Gtk.StackTransitionType.NONE)
+        nav.add_named(root, "list")
+        page = PlaylistPage(self.art, on_back=lambda: self.close_playlist(tab),
+                            on_play=lambda shuffle: self.on_play_playlist(page.playlist.uri, shuffle),
+                            on_pick=lambda uri: self.on_pick_track(page.playlist.uri, uri))
+        nav.add_named(page, "page")
+        self.navs[tab], self.pages[tab] = nav, page
+        return nav
+
+    def _playlist_by_uri(self, uri: str) -> Playlist | None:
+        return next((p for p in self.state.playlists if p.uri == uri), None)
+
     def _build_playlists(self) -> Gtk.Widget:
         self.pl_list = make_list()
-        self.pl_list.connect("row-activated", lambda _l, row: self.on_command("play", {"uri": row.uri}))
+        self.pl_list.connect("row-activated", lambda _l, row: self._activate_playlist(row.uri, "playlists"))
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, margin_start=6, margin_end=6)
         self.pl_hint = label("Carregando playlists…", "hs-hint", ellipsize=False)
         self.pl_hint.set_wrap(True)
@@ -204,6 +228,29 @@ class ExpandedView(Gtk.Box):
         f.append(self.warn)
         return f
 
+    # ------------------------------------------------------------------ tela da playlist
+    def _activate_playlist(self, uri: str, tab: str) -> None:
+        p = self._playlist_by_uri(uri)
+        if p is not None:
+            self.on_open_playlist(p, tab)
+
+    def open_playlist(self, playlist: Playlist, tab: str) -> None:
+        page = self.pages[tab]
+        page.show(playlist, "Playlists" if tab == "playlists" else "Buscar")
+        self.navs[tab].set_visible_child_name("page")
+        self._refresh_pages()
+
+    def close_playlist(self, tab: str | None = None) -> None:
+        self.navs[tab or self.state.tab].set_visible_child_name("list")
+
+    def page_open(self, tab: str) -> bool:
+        return self.navs[tab].get_visible_child_name() == "page"
+
+    def _refresh_pages(self) -> None:
+        for tab, page in self.pages.items():
+            if self.page_open(tab):
+                page.set_queue(self.state.queue_context, self.state.queue, self.state.playback.track)
+
     # ------------------------------------------------------------------ ações
     def show_tab(self, name: str) -> None:
         self.state.set_ui(tab=name)
@@ -211,6 +258,7 @@ class ExpandedView(Gtk.Box):
             self.focus_search()
 
     def focus_search(self) -> None:
+        self.close_playlist("search")  # `/` e o atalho de busca voltam aos resultados
         self.stack.set_visible_child_name("search")
         self.entry.grab_focus()
 
@@ -260,7 +308,10 @@ class ExpandedView(Gtk.Box):
     def _on_key(self, _c, keyval, _code, mods) -> bool:
         typing = self.entry.has_focus() or (self.entry.get_focus_child() is not None)
         if keyval == Gdk.KEY_Escape:
-            self.on_collapse()
+            if self.page_open(self.state.tab):  # Esc volta da tela da playlist antes de recolher
+                self.close_playlist()
+            else:
+                self.on_collapse()
             return True
         if keyval in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab):
             self.show_tab("search" if self.state.tab == "playlists" else "playlists")
@@ -312,6 +363,10 @@ class ExpandedView(Gtk.Box):
         elif what in ("playback", "liked", "soloist"):
             self._refresh_playback()
             self._mark_active()
+            if what == "playback":
+                self._refresh_pages()
+        elif what == "queue":
+            self._refresh_pages()
 
     def _refresh_tabs(self) -> None:
         tab = self.state.tab
