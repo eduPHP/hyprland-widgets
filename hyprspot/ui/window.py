@@ -58,9 +58,11 @@ class HyprspotWindow(Gtk.ApplicationWindow):
         # ao sair, devolve. 250 ms de espera evitam roubar o foco quando o mouse só passa por cima.
         self._on_compact_key = on_compact_key
         self._hover_id = 0
+        self._grabbed = False
         motion = Gtk.EventControllerMotion()
         motion.connect("enter", lambda *_: self._hover_enter())
         motion.connect("leave", lambda *_: self._hover_leave())
+        motion.connect("motion", self._on_motion)
         self.add_controller(motion)
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self._on_key)
@@ -77,6 +79,7 @@ class HyprspotWindow(Gtk.ApplicationWindow):
             self.expanded.set_visible(exp)
         w = self.expanded if exp else self.compact
         self.set_default_size(*w.get_size_request())
+        self._grabbed = False
         LS.set_keyboard_mode(self, LS.KeyboardMode.EXCLUSIVE if exp else LS.KeyboardMode.NONE)
         if exp:
             self.present()
@@ -84,16 +87,31 @@ class HyprspotWindow(Gtk.ApplicationWindow):
     HOVER_DWELL_MS = 250
 
     def _hover_enter(self) -> None:
-        if self.mode != "compact" or self._hover_id:
+        if self.mode != "compact" or self._hover_id or self._grabbed:
             return
 
         def grab():
             self._hover_id = 0
-            if self.mode == "compact":
-                LS.set_keyboard_mode(self, LS.KeyboardMode.EXCLUSIVE)
+            self._grab_keyboard()
             return False
 
         self._hover_id = GLib.timeout_add(self.HOVER_DWELL_MS, grab)
+
+    def _grab_keyboard(self) -> None:
+        if self.mode == "compact":
+            LS.set_keyboard_mode(self, LS.KeyboardMode.EXCLUSIVE)
+            self._grabbed = True
+
+    def _on_motion(self, _ctrl, x: float, y: float) -> None:
+        # Com o teclado exclusivo, o Hyprland continua mandando o movimento para o widget
+        # mesmo com o cursor fora dele e não manda "leave". Sem isto, o widget prendia o
+        # teclado e o mouse (e um "q" digitado em outra janela o fechava).
+        if self.mode != "compact":
+            return
+        if 0 <= x < self.get_width() and 0 <= y < self.get_height():
+            self._hover_enter()  # o "enter" pode chegar com o cursor ainda na borda, fora
+        elif self._hover_id or self._grabbed:
+            self._hover_leave()
 
     def _hover_leave(self) -> None:
         if self._hover_id:
@@ -101,6 +119,7 @@ class HyprspotWindow(Gtk.ApplicationWindow):
             self._hover_id = 0
         if self.mode == "compact":
             LS.set_keyboard_mode(self, LS.KeyboardMode.NONE)
+            self._grabbed = False
 
     def _on_key(self, _c, keyval, _code, _state) -> bool:
         if self.mode == "compact" and self._on_compact_key is not None:
