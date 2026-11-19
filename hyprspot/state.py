@@ -104,6 +104,44 @@ def optimistic(pb: Playback, command: str, now_ms: int | None = None, **fields) 
     return pb
 
 
+SKIP_WINDOW_MS = 1200  # faixas com erro somem em 0,5–0,9 s; as que tocam passam bem disso
+
+
+class SkipDetector:
+    """Reconhece faixas que o Soloist pulou sozinho (ex.: licença negada, erro 8001).
+
+    O Soloist não avisa o erro pelo WebSocket; o sinal é a faixa ser trocada logo depois de
+    aparecer sem que o usuário tenha pedido nada desde que ela apareceu.
+    """
+
+    def __init__(self, window_ms: int = SKIP_WINDOW_MS):
+        self.window_ms = window_ms
+        self._track: Track | None = None
+        self._since = 0
+        self._user_at: int | None = None
+
+    def user_command(self, now_ms: int) -> None:
+        self._user_at = now_ms
+
+    def track_changed(self, track: Track | None, now_ms: int) -> Track | None:
+        """Registra a faixa atual; devolve a anterior se ela foi pulada pelo Soloist."""
+        if track is None or (self._track is not None and track.uri == self._track.uri):
+            return None
+        prev, since = self._track, self._since
+        self._track, self._since = track, now_ms
+        if prev is None or now_ms - since >= self.window_ms:
+            return None
+        if self._user_at is not None and self._user_at >= since:
+            return None
+        return prev
+
+
+def skip_message(titles: list[str]) -> str:
+    if len(titles) > 1:
+        return f"{len(titles)} faixas indisponíveis, puladas"
+    return f"“{titles[0]}” indisponível, pulada" if titles and titles[0] else "Faixa indisponível, pulada"
+
+
 PLAYLISTS_MAX_AGE_S = 600
 
 

@@ -19,7 +19,8 @@ from hyprspot.config import CACHE_DIR, CONFIG_PATH, TOKEN_PATH, load_config, sav
 from hyprspot.focus import FocusWatcher  # noqa: E402
 from hyprspot.soloist import SoloistClient, repeat_commands  # noqa: E402
 from hyprspot.soloistctl import days_left, installed_version  # noqa: E402
-from hyprspot.state import AppState, Throttle, apply_event, clock_ms, optimistic, should_refresh_playlists  # noqa: E402
+from hyprspot.state import (AppState, SkipDetector, Throttle, apply_event, clock_ms, optimistic,  # noqa: E402
+                            should_refresh_playlists, skip_message)
 from hyprspot.ui.common import load_css  # noqa: E402
 from hyprspot.ui.compact import CompactView, compact_key_action  # noqa: E402
 from hyprspot.ui.cover import ArtLoader  # noqa: E402
@@ -31,6 +32,7 @@ from hyprspot.webapi import WebApi, fill_track, liked_playlist, soup_transport  
 
 APP_ID = "dev.hyprspot.App"
 ERROR_CLEAR_MS = 2500
+SKIP_NOTICE_MS = 4000
 VOLUME_FLUSH_MS = 110
 SOLOIST_CHECK_S = 6 * 3600
 
@@ -49,6 +51,8 @@ class HyprspotApp(Gtk.Application):
         self._meta: dict = {}
         self._meta_pending: set[str] = set()
         self._hide_hint_shown = False
+        self.skips = SkipDetector()
+        self._skipped: list[str] = []
         for name in (*ACTIONS.values(), "expand", "expand-search", "click-anywhere", "hide-toggle"):  # inclui "quit"
             act = Gio.SimpleAction.new(name, None)
             act.connect("activate", lambda _a, _p, n=name: self.run_action(n))
@@ -191,6 +195,10 @@ class HyprspotApp(Gtk.Application):
             return
         pb = apply_event(self.state.playback, ev)
         self.state.set_playback(replace(pb, track=fill_track(pb.track, self._meta)))
+        skipped = self.skips.track_changed(self.state.playback.track, clock_ms())
+        if skipped is not None:  # o Soloist não conseguiu tocar a faixa e passou para a próxima
+            self._skipped.append(skipped.title)
+            self._flash_error(skip_message(self._skipped), SKIP_NOTICE_MS)
         self._fetch_meta_if_missing()
         uri = self.state.playback.track.uri if self.state.playback.track else None
         if uri != self._last_track_uri:
@@ -216,6 +224,8 @@ class HyprspotApp(Gtk.Application):
         self.api.track(t.uri, got)
 
     def on_command(self, name: str, fields: dict) -> None:
+        if name != "set_volume":
+            self.skips.user_command(clock_ms())  # troca de faixa pedida pelo usuário não é "pulo"
         pb = self.state.playback
         if not pb.connected:
             self._flash_error("Soloist desconectado")
@@ -246,17 +256,18 @@ class HyprspotApp(Gtk.Application):
             self.client.send("set_volume", volume=v)
         return False
 
-    def _flash_error(self, msg: str) -> None:
+    def _flash_error(self, msg: str, ms: int = ERROR_CLEAR_MS) -> None:
         self.state.set_error(msg)
         if self._error_id:
             GLib.source_remove(self._error_id)
 
         def clear():
             self._error_id = 0
+            self._skipped = []
             self.state.set_error(None)
             return False
 
-        self._error_id = GLib.timeout_add(ERROR_CLEAR_MS, clear)
+        self._error_id = GLib.timeout_add(ms, clear)
 
     # ------------------------------------------------------------------ Web API
     def refresh_playlists(self) -> None:

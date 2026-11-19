@@ -176,7 +176,7 @@ rm -rf ~/.config/hyprspot ~/.cache/hyprspot
 
 | Bug | Detalhes |
 |---|---|
-| "Próxima" às vezes pula mais de uma música | Defeito do Soloist, não do hyprspot: o widget manda um único comando por clique. Depois de avançar, o Spotify às vezes nega a licença da faixa (`playback_error_drm_denied`), e o Soloist pula para a seguinte sozinho. Acontece também com `soloist ctl next`. Reportado em [spotify/soloist#40](https://github.com/spotify/soloist/issues/40). |
+| "Próxima" às vezes pula mais de uma música | Defeito do Soloist, não do hyprspot: o widget manda um único comando por clique. Depois de avançar, o Spotify às vezes nega a licença da faixa (`playback_error_drm_denied`), e o Soloist pula para a seguinte sozinho. Acontece também com `soloist ctl next`. Quando isso acontece, o widget avisa qual faixa foi pulada. Reportado em [spotify/soloist#40](https://github.com/spotify/soloist/issues/40). |
 
 ## Privacidade e uso
 

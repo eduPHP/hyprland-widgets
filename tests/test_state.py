@@ -144,3 +144,50 @@ def test_should_refresh_playlists():
     assert should_refresh_playlists(900.0, 1000.0, has_items=True) is False
     assert should_refresh_playlists(0.0, 1000.0, has_items=True) is True   # > 600 s
     assert should_refresh_playlists(990.0, 1000.0, has_items=False) is True
+
+
+# ---------------------------------------------------------------- faixa pulada pelo Soloist
+from hyprspot.model import Track  # noqa: E402
+from hyprspot.state import SkipDetector, skip_message  # noqa: E402
+
+A = Track("spotify:track:a", "Faixa A", "X")
+B = Track("spotify:track:b", "Faixa B", "X")
+C = Track("spotify:track:c", "Faixa C", "X")
+
+
+def test_track_replaced_quickly_without_user_command_is_a_skip():
+    # o Soloist às vezes não consegue a licença da faixa e passa para a próxima sozinho
+    d = SkipDetector()
+    assert d.track_changed(A, 0) is None
+    d.user_command(10_000)                       # usuário: "próxima"
+    assert d.track_changed(B, 10_050) is None
+    assert d.track_changed(C, 10_650) == B       # B durou 600 ms e ninguém pediu: pulada
+
+
+def test_user_skipping_fast_is_not_reported():
+    d = SkipDetector()
+    d.track_changed(A, 0)
+    d.user_command(1_000)
+    d.track_changed(B, 1_050)
+    d.user_command(1_400)                        # o próprio usuário pulou B rapidinho
+    assert d.track_changed(C, 1_450) is None
+
+
+def test_track_that_played_long_enough_is_not_a_skip():
+    d = SkipDetector()
+    d.track_changed(A, 0)
+    assert d.track_changed(B, 200_000) is None   # A terminou normalmente
+    assert d.track_changed(C, 201_500) is None   # B durou 1,5 s: acima do limite
+
+
+def test_same_track_again_is_not_a_change():
+    d = SkipDetector()
+    d.track_changed(A, 0)
+    assert d.track_changed(A, 300) is None
+    assert d.track_changed(None, 500) is None    # sem faixa (desconectado) não conta
+
+
+def test_skip_message():
+    assert skip_message(["Faixa B"]) == "“Faixa B” indisponível, pulada"
+    assert skip_message(["Faixa B", "Faixa C"]) == "2 faixas indisponíveis, puladas"
+    assert skip_message([""]) == "Faixa indisponível, pulada"
