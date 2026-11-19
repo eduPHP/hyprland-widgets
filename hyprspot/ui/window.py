@@ -112,6 +112,9 @@ class HyprspotWindow(Gtk.ApplicationWindow):
             self.expanded.set_visible(exp)
         w = self.expanded if exp else self.compact
         self.set_default_size(*w.get_size_request())
+        # o expandido é bem maior: perto da borda oposta à âncora ele sairia da tela. Mostra-o
+        # numa posição ajustada; a posição escolhida (self.margin) volta ao recolher.
+        self._apply_margin(self._fit_margin(w.get_size_request()) if exp else None)
         self._grabbed = False
         LS.set_keyboard_mode(self, LS.KeyboardMode.EXCLUSIVE if exp else LS.KeyboardMode.NONE)
         if exp:
@@ -163,12 +166,18 @@ class HyprspotWindow(Gtk.ApplicationWindow):
         self.set_visible(not self.get_visible())
 
     # -- arrastar para mover --
-    def _apply_margin(self) -> None:
-        LS.set_margin(self, self._horiz, self.margin[0])
-        LS.set_margin(self, self._vert, self.margin[1])
+    def _apply_margin(self, margin: tuple[int, int] | None = None) -> None:
+        m = self._shown_margin = margin or self.margin
+        LS.set_margin(self, self._horiz, m[0])
+        LS.set_margin(self, self._vert, m[1])
+
+    def _fit_margin(self, size: tuple[int, int]) -> tuple[int, int]:
+        pos = self._cursor_pos()
+        area = self._screen_area(*pos) if pos else None
+        return clamp_margin(self.margin, size, area) if area else self.margin
 
     def _drag_begin(self, _g, _x: float, _y: float, left: bool) -> None:
-        self._drag_start = self.margin
+        self._drag_start = self._shown_margin  # no expandido pode estar ajustada para caber
         self._dragging = False
         self._drag_cursor0 = self._cursor_pos()
         self._drag_area = self._screen_area(*self._drag_cursor0) if self._drag_cursor0 else None

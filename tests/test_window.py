@@ -15,9 +15,13 @@ class FakeLS:
 
     def __init__(self):
         self.modes = []
+        self.margins = {}
 
     def set_keyboard_mode(self, _win, mode):
         self.modes.append(mode)
+
+    def set_margin(self, _win, edge, value):
+        self.margins[edge] = value
 
     def __getattr__(self, _name):
         return lambda *a, **k: None
@@ -245,3 +249,36 @@ def test_reaching_the_edge_is_not_a_push(win):
     w.fake_cursor["area"] = (1600, 874)
     _drag_to(w, (1400.0 + 40, 850.0))               # encosta na borda e passa só 24 px
     assert hints == [] and w.margin == (0, 16)
+
+
+def test_expanding_near_the_top_stays_inside_the_screen(monkeypatch):
+    # compacto encostado no topo: o expandido (bem mais alto) desce o quanto precisar para caber;
+    # ao recolher, o compacto volta para a posição que o usuário escolheu
+    import gi
+    gi.require_version("Gtk", "4.0")
+    from gi.repository import Gtk
+    Gtk.init()
+    from hyprspot.config import Config
+    from hyprspot.ui import window as W
+
+    ls = FakeLS()
+    monkeypatch.setattr(W, "LS", ls)
+    monkeypatch.setattr(W, "EDGES", {"top": "top", "bottom": "bottom", "left": "left", "right": "right"})
+    compact, expanded = Gtk.Box(), Gtk.Box()
+    compact.set_size_request(320, 64)
+    expanded.set_size_request(360, 520)
+    w = W.HyprspotWindow(None, Config(client_id="", anchor="bottom-right", margin=(16, 800)), compact, expanded,
+                         lambda m: None, cursor_pos=lambda: (1400.0, 50.0), screen_area=lambda x, y: (1600, 874))
+    try:
+        assert ls.margins == {"right": 16, "bottom": 800}
+        w.set_mode("expanded")
+        assert ls.margins == {"right": 16, "bottom": 354}       # 874 − 520
+        w.set_mode("compact")
+        assert ls.margins == {"right": 16, "bottom": 800}
+        assert w.margin == (16, 800)                              # a posição salva não muda
+        # arrastar o expandido parte de onde ele aparece, não da posição salva (sem salto)
+        w.set_mode("expanded")
+        w._drag_begin(FakeGesture(), 0, 0, left=False)
+        assert w._drag_start == (16, 354)
+    finally:
+        w.destroy()
