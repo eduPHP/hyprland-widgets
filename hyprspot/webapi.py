@@ -288,4 +288,6 @@ class WebApi:
         with_device(True)
 
     def set_liked(self, uri: str, liked: bool, cb: Callable[[bool], None]) -> None:
-        self._request("PUT" if liked else "DELETE", "/me/library", lambda _s, _d, e: cb(e is None), body={"uris": [uri]})
+        # o URI vai no endereço: no corpo o Spotify responde 400 "Missing required field: uris"
+        self._request("PUT" if liked else "DELETE", "/me/library?" + urllib.parse.urlencode({"uris": uri}),
+                      lambda _s, _d, e: cb(e is None))

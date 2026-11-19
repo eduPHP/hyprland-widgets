@@ -1,6 +1,8 @@
 """WebApi com um transporte falso (sem rede)."""
 import json
 
+import pytest
+
 from hyprspot.auth import TokenStore
 from hyprspot.webapi import ERR_AUTH, ERR_OFFLINE, ERR_QUOTA, WebApi
 
@@ -155,3 +157,16 @@ def test_search_also_delivers_playlists(tmp_path):
     api._transport.reply(0, data={"tracks": {"items": []}, "playlists": {"items": [
         {"uri": "spotify:playlist:a", "name": "A", "owner": {"display_name": "x"}}]}})
     assert got == [0] and [p.uri for p in pls[0]] == ["spotify:playlist:a"]
+
+
+@pytest.mark.parametrize("liked,method", [(True, "PUT"), (False, "DELETE")])
+def test_set_liked_sends_uri_in_query_string(tmp_path, liked, method):
+    # o Spotify responde 400 "Missing required field: uris" se o URI vier no corpo
+    api, _ = api_with(tmp_path, FRESH)
+    got = []
+    api.set_liked("spotify:track:abc", liked, got.append)
+    m, url, _cb = api._transport.calls[0]
+    assert m == method and url.endswith("/me/library?uris=spotify%3Atrack%3Aabc")
+    assert api._transport.bodies[0] is None
+    api._transport.reply(0, status=200)
+    assert got == [True]
