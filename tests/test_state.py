@@ -247,3 +247,16 @@ def test_queue_sync_reset_unblocks_after_lost_reply():
     q.reset()
     q.request()
     assert sent == ["get_queue", "get_queue"]
+
+
+def test_truncated_queue_is_recognised():
+    # o queue_changed espontâneo traz só 10: é uma fatia da fila que já temos (às vezes andou 1)
+    from hyprspot.state import queue_is_truncated
+    old = [Track(f"spotify:track:{i}", str(i), "") for i in range(36)]
+    assert queue_is_truncated(old, old[:10])
+    assert queue_is_truncated(old, old[1:11])           # a faixa avançou
+    assert not queue_is_truncated(old, old[:12])        # mais de 10: é a resposta completa
+    assert not queue_is_truncated(old[:8], old[:8])     # playlist curta: não é corte
+    assert not queue_is_truncated([], old[:10])
+    other = [Track(f"spotify:track:o{i}", str(i), "") for i in range(10)]
+    assert not queue_is_truncated(old, other)           # outra playlist

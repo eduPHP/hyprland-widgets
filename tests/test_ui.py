@@ -251,3 +251,46 @@ def test_more_search_pages_keep_playlists(nav):
     pls, tracks = _search_state(state)
     state.set_search("rock", tracks + tracks)          # página seguinte: só músicas
     assert state.search_playlists == pls
+
+
+# ---------------------------------------------------------------- correções da revisão final
+def test_search_tab_keeps_open_page_when_switching_tabs(nav):
+    # revisão: trocar de aba não pode perder a playlist aberta na aba Buscar (só `/` volta aos resultados)
+    from gi.repository import Gdk
+    state, v, _ = nav
+    v.show_tab("search")
+    v.open_playlist(state.playlists[0], "search")
+    v._on_key(None, Gdk.KEY_Tab, 0, 0)
+    v._on_key(None, Gdk.KEY_Tab, 0, 0)
+    assert state.tab == "search" and v.page_open("search")
+    v.show_tab("playlists")
+    v.show_tab("search")
+    assert v.page_open("search")
+
+
+def test_page_says_loading_right_after_starting_a_playlist(nav):
+    # revisão: logo depois do clique, a playlist nova ainda não é o contexto; não é "não está tocando"
+    from hyprspot.state import Playback
+    state, v, _ = nav
+    state.set_playback(Playback(connected=True, context_uri="spotify:playlist:outra"))
+    v.open_playlist(state.playlists[0], "playlists", starting=True)
+    page = v.pages["playlists"]
+    assert page.not_playing.get_visible() and page.not_playing.get_label() == "Carregando…"
+    assert not page.list_box.get_visible()
+
+
+def test_page_hides_stale_list_when_something_else_plays(nav):
+    # revisão: outro contexto começou; a fila antiga não pode continuar aparecendo
+    from hyprspot.model import Track
+    from hyprspot.state import Playback
+    state, v, _ = nav
+    a = state.playlists[0].uri
+    state.set_queue(a, [Track("spotify:track:x", "X", "B")])
+    state.set_playback(Playback(connected=True, context_uri=a))
+    v.open_playlist(state.playlists[0], "playlists")
+    page = v.pages["playlists"]
+    assert page.list_box.get_visible()
+    state.set_playback(Playback(connected=True, context_uri="spotify:playlist:c",
+                                track=Track("spotify:track:c0", "C0", "B")))
+    assert not page.list_box.get_visible()
+    assert page.not_playing.get_label() == "Esta playlist não está tocando"

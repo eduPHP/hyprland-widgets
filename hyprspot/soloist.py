@@ -63,6 +63,8 @@ def parse_queue(ev: dict) -> list[Track]:
     """Próximas faixas de um `queue_changed`, na ordem em que vão tocar (só músicas)."""
     out = []
     for entry in ev.get("upcoming") or []:
+        if (entry or {}).get("source", "context") != "context":
+            continue  # posta na fila à mão ou autoplay: não é da playlist
         t = entity_to_track((entry or {}).get("item"))
         if t is not None and t.uri.startswith("spotify:track:"):
             out.append(t)

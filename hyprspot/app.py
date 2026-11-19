@@ -20,7 +20,7 @@ from hyprspot.focus import FocusWatcher  # noqa: E402
 from hyprspot.soloist import SoloistClient, repeat_commands  # noqa: E402
 from hyprspot.soloistctl import days_left, installed_version  # noqa: E402
 from hyprspot.state import (AppState, QueueSync, SkipDetector, Throttle, apply_event, clock_ms,  # noqa: E402
-                            optimistic, play_button_commands, playlist_click_commands,
+                            optimistic, play_button_commands, playlist_click_commands, queue_is_truncated,
                             should_refresh_playlists, skip_count, skip_message)
 from hyprspot.ui.common import load_css  # noqa: E402
 from hyprspot.ui.compact import CompactView, compact_key_action  # noqa: E402
@@ -130,8 +130,11 @@ class HyprspotApp(Gtk.Application):
             self.focus.arm()
             if should_refresh_playlists(self._playlists_ok, time.monotonic(), bool(self.state.playlists)):
                 self.refresh_playlists()
+            self.queue_sync.request()
             if self.state.tab == "search":
-                GLib.idle_add(lambda: (self.expanded.focus_search(), False)[1])
+                # o atalho de busca volta aos resultados; expandir à toa mantém a playlist aberta
+                reset = name == "expand-search"
+                GLib.idle_add(lambda: (self.expanded.focus_search(reset), False)[1])
         elif name == "collapse":
             self._cancel_collapse()
             self.focus.disarm()
@@ -201,11 +204,16 @@ class HyprspotApp(Gtk.Application):
         kind = ev.get("type")
         if kind == "queue_changed":
             tracks = self.queue_sync.on_queue_event(ev)
-            if tracks is not None:
-                self.state.set_queue(self.state.playback.context_uri, tracks)
+            if tracks is None:
+                return
+            ctx = self.state.playback.context_uri
+            if ctx == self.state.queue_context and queue_is_truncated(self.state.queue, tracks):
+                self.queue_sync.request()  # recorte de 10 do evento espontâneo: busca a fila inteira
+                return
+            self.state.set_queue(ctx, tracks)
             return
-        if kind in ("track_changed", "context_changed", "playback_state"):
-            self.queue_sync.request()  # a fila muda junto; o queue_changed espontâneo traz só 10
+        if kind in ("track_changed", "context_changed", "playback_state") and self.state.ui_mode == "expanded":
+            self.queue_sync.request()  # a fila só aparece no expandido; no compacto não precisa
         if kind == "error":
             self.queue_sync.reset()
             self._flash_error(ev.get("message") or "Erro no Soloist")
@@ -242,9 +250,11 @@ class HyprspotApp(Gtk.Application):
 
     # ------------------------------------------------------------------ tela da playlist
     def _open_playlist(self, playlist, tab: str) -> None:
-        for name, fields in playlist_click_commands(self.state.playback, playlist.uri):
+        cmds = playlist_click_commands(self.state.playback, playlist.uri)
+        for name, fields in cmds:
             self.on_command(name, fields)
-        self.expanded.open_playlist(playlist, tab)
+        self.expanded.open_playlist(playlist, tab, starting=bool(cmds))
+        self.queue_sync.request()
 
     def _play_playlist(self, uri: str, shuffle: bool) -> None:
         for name, fields in play_button_commands(uri, shuffle):
@@ -256,6 +266,7 @@ class HyprspotApp(Gtk.Application):
 
         def done(err: str | None) -> None:
             if err is None:
+                self.skips.user_command(clock_ms())  # a troca pode chegar depois de um pedido lento
                 return
             n = skip_count(self.state.queue, track_uri) if context_uri.endswith(":collection") else None
             if n:  # Curtidas sem offset: avança até ela

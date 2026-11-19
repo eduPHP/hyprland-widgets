@@ -180,6 +180,15 @@ def play_button_commands(uri: str, shuffle: bool) -> list[tuple[str, dict]]:
 
 
 SKIP_FALLBACK_MAX = 10
+SPONTANEOUS_QUEUE_MAX = 10  # o queue_changed espontâneo do Soloist traz no máximo 10
+
+
+def queue_is_truncated(old: list[Track], new: list[Track]) -> bool:
+    """`new` é só o recorte de 10 do evento espontâneo de uma fila maior que já temos."""
+    n = len(new)
+    if not new or n > SPONTANEOUS_QUEUE_MAX or len(old) <= n:
+        return False
+    return new == old[:n] or new == old[1:1 + n]  # a faixa pode ter avançado uma
 
 
 def skip_count(queue: list[Track], uri: str) -> int | None:

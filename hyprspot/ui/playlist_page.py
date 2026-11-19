@@ -6,7 +6,7 @@ from typing import Callable
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk  # noqa: E402
+from gi.repository import GLib, Gtk  # noqa: E402
 
 from hyprspot.model import Playlist, Track  # noqa: E402
 from hyprspot.ui.common import label  # noqa: E402
@@ -27,6 +27,8 @@ class PlaylistPage(Gtk.Box):
         self._tracks: list[Track] = []
         self._current: str | None = None
         self._rendered = 0
+        self._want = 0          # quantas linhas o usuário já carregou nesta playlist (não encolhe)
+        self._starting = False  # acabou de mandar tocar: ainda não é o contexto
 
         self.back_btn = Gtk.Button(label="←")
         self.back_btn.add_css_class("hs-back")
@@ -84,8 +86,10 @@ class PlaylistPage(Gtk.Box):
         return b
 
     # -- conteúdo --
-    def show(self, playlist: Playlist, back_label: str) -> None:
+    def show(self, playlist: Playlist, back_label: str, starting: bool = False) -> None:
         self.playlist = playlist
+        self._starting = starting
+        self._want = 0
         self.back_btn.set_label(f"←  {back_label}")
         self.name.set_label(playlist.name)
         self.owner.set_label(f"Playlist · {playlist.owner}" if playlist.owner else "Playlist")
@@ -94,22 +98,36 @@ class PlaylistPage(Gtk.Box):
         self._clear()
         self.list_box.get_vadjustment().set_value(0)
 
-    def set_queue(self, context_uri: str | None, tracks: list[Track], current: Track | None) -> None:
-        playing_here = self.playlist is not None and context_uri == self.playlist.uri
-        self.list_box.set_visible(playing_here)
-        self.section.set_visible(playing_here)
-        self.not_playing.set_visible(not playing_here)
-        if not playing_here:
+    def set_queue(self, context_uri: str | None, tracks: list[Track], current: Track | None,
+                  playing_uri: str | None = None) -> None:
+        """`context_uri`: de qual contexto é a fila; `playing_uri`: o que está tocando (padrão: o mesmo)."""
+        if self.playlist is None:
+            return
+        uri = self.playlist.uri
+        playing = context_uri if playing_uri is None else playing_uri
+        if playing == uri:
+            self._starting = False
+        ready = playing == uri and context_uri == uri
+        self.list_box.set_visible(ready)
+        self.section.set_visible(ready)
+        self.not_playing.set_visible(not ready)
+        if not ready:
+            loading = self._starting or playing == uri  # mandou tocar, ou a fila ainda é da anterior
+            self.not_playing.set_label("Carregando…" if loading else "Esta playlist não está tocando")
             return
         # a fila do Soloist só traz as próximas: a faixa atual entra no topo
         items = list(tracks)
         if current is not None and (not items or items[0].uri != current.uri):
             items.insert(0, current)
-        keep = max(PAGE_BLOCK, self._rendered)
+        keep = max(PAGE_BLOCK, self._rendered, self._want)
         if items != self._tracks:
+            adj = self.list_box.get_vadjustment()
+            pos = adj.get_value()
             self._tracks = items
             self._clear()
             self._render_until(min(keep, len(items)))
+            if pos:  # a lista é refeita a cada faixa: mantém a rolagem onde estava
+                GLib.idle_add(lambda: (adj.set_value(min(pos, adj.get_upper() - adj.get_page_size())), False)[1])
         self._current = current.uri if current else None
         self._mark_first_current()
 
@@ -118,6 +136,7 @@ class PlaylistPage(Gtk.Box):
 
     def load_more(self) -> None:
         self._render_until(min(self._rendered + PAGE_BLOCK, len(self._tracks)))
+        self._want = max(self._want, self._rendered)
 
     # -- interno --
     def _clear(self) -> None:

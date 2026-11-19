@@ -105,3 +105,14 @@ def test_page_buttons_call_back(page):
     p.back_btn.emit("clicked")
     p.list.emit("row-activated", rows(p.list)[2])
     assert calls == [("play", False), ("play", True), ("back",), ("pick", "spotify:track:2")]
+
+
+def test_shrink_then_grow_keeps_rows_already_shown(page):
+    # revisão: a cada troca de faixa chega uma fila cortada (10) antes da completa;
+    # quem já tinha 60 linhas não pode voltar para 30
+    p, _ = page
+    p.set_queue(PL, tracks(75), None)
+    p.load_more()
+    p.set_queue(PL, tracks(10), None)
+    p.set_queue(PL, tracks(75), None)
+    assert p.rendered() == 60

@@ -253,9 +253,9 @@ class ExpandedView(Gtk.Box):
         if p is not None:
             self.on_open_playlist(p, "search")
 
-    def open_playlist(self, playlist: Playlist, tab: str) -> None:
+    def open_playlist(self, playlist: Playlist, tab: str, starting: bool = False) -> None:
         page = self.pages[tab]
-        page.show(playlist, "Playlists" if tab == "playlists" else "Buscar")
+        page.show(playlist, "Playlists" if tab == "playlists" else "Buscar", starting)
         self.navs[tab].set_visible_child_name("page")
         self._refresh_pages()
 
@@ -268,18 +268,22 @@ class ExpandedView(Gtk.Box):
     def _refresh_pages(self) -> None:
         for tab, page in self.pages.items():
             if self.page_open(tab):
-                page.set_queue(self.state.queue_context, self.state.queue, self.state.playback.track)
+                pb = self.state.playback
+                page.set_queue(self.state.queue_context, self.state.queue, pb.track, pb.context_uri)
 
     # ------------------------------------------------------------------ ações
     def show_tab(self, name: str) -> None:
         self.state.set_ui(tab=name)
         if name == "search":
-            self.focus_search()
+            self.focus_search(reset=False)
 
-    def focus_search(self) -> None:
-        self.close_playlist("search")  # `/` e o atalho de busca voltam aos resultados
+    def focus_search(self, reset: bool = True) -> None:
+        """`reset`: `/` e o atalho de busca voltam aos resultados; trocar de aba mantém a playlist aberta."""
+        if reset:
+            self.close_playlist("search")
         self.stack.set_visible_child_name("search")
-        self.entry.grab_focus()
+        if not self.page_open("search"):
+            self.entry.grab_focus()
 
     def _toggle_play(self) -> None:
         self.on_command("pause" if self.state.playback.status in ("playing", "buffering") else "play", {})
@@ -340,7 +344,8 @@ class ExpandedView(Gtk.Box):
             self.on_quit()
             return True
         if keyval == Gdk.KEY_slash and not typing:
-            self.show_tab("search")
+            self.state.set_ui(tab="search")
+            self.focus_search()
             return True
         if keyval == Gdk.KEY_space and not typing:
             self._toggle_play()

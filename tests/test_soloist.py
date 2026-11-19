@@ -90,3 +90,12 @@ def test_parse_queue_skips_non_tracks():
     tracks = parse_queue(_queue_fixture())
     assert all(t.uri.startswith("spotify:track:") for t in tracks)
     assert parse_queue({"type": "queue_changed"}) == []
+
+
+def test_parse_queue_keeps_only_the_playlist_itself():
+    # revisão: músicas postas na fila à mão ou do autoplay não são da playlist; clicar nelas falharia
+    from hyprspot.soloist import parse_queue
+    ev = _queue_fixture()
+    ev["upcoming"][0]["source"] = "queue"
+    ev["upcoming"][2]["source"] = "autoplay"
+    assert [t.title for t in parse_queue(ev)] == ["The American Dream Is Killing Me"]
