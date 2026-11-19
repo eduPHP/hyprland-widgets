@@ -6,13 +6,15 @@ Mini player de Spotify para o Hyprland. Fica sempre por cima, num canto da tela,
   <img src="docs/screenshots/compact.png" width="376" alt="hyprspot compacto: capa, título, artista e os botões anterior, play e próxima">
 </p>
 <p align="center">
-  <img src="docs/screenshots/expanded-playlists.png" width="380" alt="hyprspot expandido na aba Playlists">
+  <img src="docs/screenshots/expanded-playlists.png" width="260" alt="hyprspot expandido na aba Playlists">
   &nbsp;
-  <img src="docs/screenshots/expanded-search.png" width="380" alt="hyprspot expandido com a busca de músicas">
+  <img src="docs/screenshots/expanded-playlist-page.png" width="260" alt="Tela de uma playlist: voltar, Tocar, Aleatório e a lista A seguir">
+  &nbsp;
+  <img src="docs/screenshots/expanded-search.png" width="260" alt="hyprspot expandido com a busca de playlists e músicas">
 </p>
 
 - **Compacto (320×64):** capa, faixa, artista, anterior / play / próxima e barra de progresso. Para ajustar o volume, role o mouse sobre ele.
-- **Expandido (360×520):** playlists, busca com resultados conforme você digita, curtir, aleatório, repetir, posição da música e volume.
+- **Expandido (360×600):** playlists, a tela de cada playlist com a fila "A seguir", busca de músicas e playlists conforme você digita, curtir, aleatório, repetir, posição da música e volume.
 - **Rápido:** os comandos vão direto para o player local e respondem em cerca de 15 ms. Os botões não esperam a resposta do Spotify para mudar na tela.
 - **Discreto:** não rouba o foco das outras janelas, recolhe sozinho quando você clica fora e pode ser arrastado para qualquer canto.
 
@@ -116,12 +118,13 @@ Por fim, abra **Settings** e cole o **Client ID** no campo. É o Client ID, não
 |---|---|
 | Expandir / recolher | `Super+Alt+M`, ou clique na capa ou no título |
 | Abrir direto na busca | `Super+Alt+B` |
+| Abrir uma playlist | clique nela, na lista ou na busca: ela começa a tocar e abre a tela dela, com "Tocar", "Aleatório" e a fila "A seguir". Clique numa música da fila para tocar a playlist a partir dela. Se a playlist já estiver tocando, só abre a tela. |
 | Esconder / mostrar | `Super+Alt+H` |
 | Volume | rolar o mouse sobre o widget compacto |
 | Mover o widget | arrastar o compacto com o botão esquerdo (no touchpad, um dedo) ou qualquer modo com o botão do meio. Ele não sai da área visível, e a posição fica salva. |
 | Fechar o hyprspot | `q` com o mouse parado sobre o widget, ou no expandido fora da busca. A música continua tocando. |
 | Teclado no compacto | com o mouse parado sobre o widget: `Espaço` toca/pausa, `←` `→` trocam de faixa, `q` fecha |
-| Teclado no expandido | `Esc` recolhe, `Tab` troca de aba, `/` vai para a busca, `Espaço` toca/pausa, `←` `→` trocam de faixa (fora da busca), `↑` `↓` e `Enter` nos resultados |
+| Teclado no expandido | `Esc` volta da tela da playlist e, na lista, recolhe; `Tab` troca de aba, `/` vai para a busca, `Espaço` toca/pausa, `←` `→` trocam de faixa (fora da busca), `↑` `↓` e `Enter` nos resultados |
 | Teclas de mídia e de volume | continuam com o sistema; o hyprspot não mexe nelas. Use o widget (ou os atalhos acima) para controlar o Soloist |
 
 Comandos de terminal: `hyprspot toggle | expand [--search] | collapse | hide | show | quit | play-pause | next | prev | setup | login | soloist-status | soloist-update`.
