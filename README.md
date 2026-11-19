@@ -161,7 +161,7 @@ O `soloist-update` baixa o build oficial, confere que ele roda, troca o `~/.loca
 | `INVALID_CLIENT: Invalid redirect URI` no login | No app do painel, adicione exatamente `http://127.0.0.1:8898/callback` em Redirect URIs e clique em Save. |
 | "A porta 8898 está ocupada" no login | Feche o outro programa que usa a porta e tente de novo. |
 | Playlists ou busca não carregam | Rode `hyprspot setup` e entre de novo no passo 3. Se a mensagem falar em cota, espere alguns minutos: apps em modo de desenvolvimento têm limite de chamadas. |
-| Teclas de mídia controlam outro player | Isso é esperado quando o Soloist não é o aparelho ativo. Toque algo pelo hyprspot primeiro. |
+| Teclas de mídia não controlam o hyprspot | É esperado: elas ficam com o sistema, e o Soloist não aparece para o `playerctl`. Use o widget ou os atalhos `Super+Alt`. |
 
 Para desinstalar: `./setup.sh --remove`. Para apagar também o Soloist e as credenciais:
 
@@ -170,6 +170,12 @@ systemctl --user disable --now soloist.service
 rm -f ~/.config/systemd/user/soloist.service ~/.local/bin/soloist
 rm -rf ~/.config/hyprspot ~/.cache/hyprspot
 ```
+
+## Bugs conhecidos
+
+| Bug | Detalhes |
+|---|---|
+| "Próxima" às vezes pula mais de uma música | Defeito do Soloist, não do hyprspot: o widget manda um único comando por clique. Depois de avançar, o Spotify às vezes nega a licença da faixa (`playback_error_drm_denied`), e o Soloist pula para a seguinte sozinho. Acontece também com `soloist ctl next`. Reportado em [spotify/soloist#40](https://github.com/spotify/soloist/issues/40). |
 
 ## Privacidade e uso
 
