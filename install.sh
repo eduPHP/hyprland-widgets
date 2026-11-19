@@ -70,7 +70,7 @@ bindld = , XF86AudioNext, Next track, exec, $BIN/hyprspot-ctl media next
 bindld = , XF86AudioPrev, Previous track, exec, $BIN/hyprspot-ctl media prev
 
 exec-once = $BIN/hyprspot
-layerrule = match:namespace hyprspot, blur on
+layerrule = match:namespace hyprspot, blur on, ignore_alpha 0.5
 windowrule = match:class ^(dev\.hyprspot\.Setup)\$, float on
 windowrule = match:class ^(dev\.hyprspot\.Setup)\$, size 580 600
 EOF

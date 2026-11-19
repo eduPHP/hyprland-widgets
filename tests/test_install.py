@@ -54,6 +54,8 @@ def test_install_writes_own_conf_and_sources_it(tmp_path):
     assert f"exec, {tmp_path}/.local/bin/hyprspot-ctl toggle" in conf
     assert f"exec-once = {tmp_path}/.local/bin/hyprspot" in conf
     assert r"match:class ^(dev\.hyprspot\.Setup)$, float on" in conf
+    # sem ignore_alpha o blur pinta o retângulo inteiro, e os cantos arredondados ficam cinza
+    assert "layerrule = match:namespace hyprspot, blur on, ignore_alpha 0.5" in conf
     main = (hypr(tmp_path) / "hyprland.conf").read_text()
     assert main.startswith(HYPRLAND)
     assert f"source = {tmp_path}/.config/hypr/hyprspot.conf" in main
