@@ -112,7 +112,7 @@ Por fim, abra **Settings** e cole o **Client ID** no campo. É o Client ID, não
 | Mover o widget | arrastar com o botão do meio (a posição fica salva) |
 | Fechar o hyprspot | `q` com o mouse parado sobre o widget, ou no expandido fora da busca. A música continua tocando. |
 | Teclado no expandido | `Esc` recolhe, `Tab` troca de aba, `/` vai para a busca, `Espaço` toca/pausa, `↑` `↓` e `Enter` nos resultados |
-| Teclas de mídia | controlam o Soloist quando ele é o aparelho ativo; senão, seguem para o `playerctl` |
+| Teclas de mídia e de volume | continuam com o sistema; o hyprspot não mexe nelas. Use o widget (ou os atalhos acima) para controlar o Soloist |
 
 Comandos de terminal: `hyprspot toggle | expand [--search] | collapse | hide | show | quit | play-pause | next | prev | setup | login | soloist-status | soloist-update`.
 

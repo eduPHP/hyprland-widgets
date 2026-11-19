@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Usado pelos atalhos do Hyprland: fala direto com o app via D-Bus (~60 ms).
-# Se o hyprspot não estiver rodando, inicia. As teclas de mídia só vão para o
-# Soloist quando ele é o aparelho ativo; senão seguem para o playerctl (swayosd).
+# Se o hyprspot não estiver rodando, inicia. "media" serve para painéis (Waybar etc.):
+# vai para o Soloist quando ele é o aparelho ativo; senão segue para o playerctl (swayosd).
+# As teclas de mídia do teclado ficam com o sistema.
 HYPRSPOT="$(dirname "$(readlink -f "$0")")/hyprspot"
 act() {
   gdbus call --session --dest dev.hyprspot.App --object-path /dev/hyprspot/App \

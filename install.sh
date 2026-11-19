@@ -59,16 +59,6 @@ bindd = SUPER ALT, M, hyprspot, exec, $BIN/hyprspot-ctl toggle
 bindd = SUPER ALT, B, hyprspot: buscar, exec, $BIN/hyprspot-ctl expand-search
 bindd = SUPER ALT, H, hyprspot: esconder/mostrar, exec, $BIN/hyprspot-ctl hide-toggle
 
-# teclas de mídia: Soloist quando ele é o aparelho ativo, senão playerctl
-unbind = , XF86AudioPlay
-unbind = , XF86AudioPause
-unbind = , XF86AudioNext
-unbind = , XF86AudioPrev
-bindld = , XF86AudioPlay, Play, exec, $BIN/hyprspot-ctl media play-pause
-bindld = , XF86AudioPause, Pause, exec, $BIN/hyprspot-ctl media play-pause
-bindld = , XF86AudioNext, Next track, exec, $BIN/hyprspot-ctl media next
-bindld = , XF86AudioPrev, Previous track, exec, $BIN/hyprspot-ctl media prev
-
 exec-once = $BIN/hyprspot
 layerrule = match:namespace hyprspot, blur on, ignore_alpha 0.5
 windowrule = match:class ^(dev\.hyprspot\.Setup)\$, float on
