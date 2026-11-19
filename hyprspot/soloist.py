@@ -59,6 +59,16 @@ def entity_to_track(entity: dict | None) -> Track | None:
     )
 
 
+def parse_queue(ev: dict) -> list[Track]:
+    """Próximas faixas de um `queue_changed`, na ordem em que vão tocar (só músicas)."""
+    out = []
+    for entry in ev.get("upcoming") or []:
+        t = entity_to_track((entry or {}).get("item"))
+        if t is not None and t.uri.startswith("spotify:track:"):
+            out.append(t)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Cliente (GLib main loop + libsoup3). Sem teste unitário: verificado à mão.
 # ---------------------------------------------------------------------------

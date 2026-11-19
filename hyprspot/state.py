@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, replace
+from typing import Callable
 
 import gi
 
@@ -10,7 +11,7 @@ gi.require_version("GObject", "2.0")
 from gi.repository import GObject  # noqa: E402
 
 from hyprspot.model import Playlist, Track  # noqa: E402
-from hyprspot.soloist import entity_to_track  # noqa: E402
+from hyprspot.soloist import entity_to_track, parse_queue  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -142,6 +143,29 @@ def skip_message(titles: list[str]) -> str:
     return f"“{titles[0]}” indisponível, pulada" if titles and titles[0] else "Faixa indisponível, pulada"
 
 
+class QueueSync:
+    """Mantém a fila inteira do Soloist sem cair em laço.
+
+    O `queue_changed` espontâneo traz no máximo 10 entradas; a fila inteira vem pedindo
+    `get_queue` (limit 0), cuja resposta também chega como `queue_changed`.
+    """
+
+    def __init__(self, send: Callable[[str, dict], bool]):
+        self._send = send
+        self._pending = False
+
+    def request(self) -> None:
+        if not self._pending:
+            self._pending = bool(self._send("get_queue", {"limit": 0}))
+
+    def on_queue_event(self, ev: dict) -> list[Track] | None:
+        if self._pending:
+            self._pending = False
+            return parse_queue(ev)
+        self.request()
+        return None
+
+
 PLAYLISTS_MAX_AGE_S = 600
 
 
@@ -190,6 +214,8 @@ class AppState(GObject.Object):
         self.playlists_error: str | None = None
         self.liked: bool | None = None
         self.soloist_days_left: int | None = None
+        self.queue: list[Track] = []
+        self.queue_context: str | None = None
 
     def set_playback(self, pb: Playback) -> None:
         if pb != self.playback:
@@ -205,6 +231,11 @@ class AppState(GObject.Object):
         if msg != self.playlists_error:
             self.playlists_error = msg
             self.emit("changed", "playlists")
+
+    def set_queue(self, context_uri: str | None, tracks: list[Track]) -> None:
+        if (context_uri, tracks) != (self.queue_context, self.queue):
+            self.queue_context, self.queue = context_uri, list(tracks)
+            self.emit("changed", "queue")
 
     def set_search(self, query: str, results: list[Track]) -> None:
         if (query, results) != (self.search_query, self.search_results):
