@@ -191,3 +191,72 @@ def test_skip_message():
     assert skip_message(["Faixa B"]) == "“Faixa B” indisponível, pulada"
     assert skip_message(["Faixa B", "Faixa C"]) == "2 faixas indisponíveis, puladas"
     assert skip_message([""]) == "Faixa indisponível, pulada"
+
+
+# ---------------------------------------------------------------- QueueSync
+from hyprspot.state import QueueSync  # noqa: E402
+
+QEV = {"type": "queue_changed", "previous": [], "upcoming": [
+    {"uid": "1", "source": "context", "item": {"uri": "spotify:track:a", "decorations": {"identity": {"name": "A"}}}}]}
+
+
+def test_queue_sync_does_not_loop():
+    # a resposta do get_queue também chega como queue_changed: não pode pedir de novo
+    sent = []
+    q = QueueSync(lambda name, f: sent.append((name, f)) or True)
+    q.request()
+    assert sent == [("get_queue", {"limit": 0})]
+    got = q.on_queue_event(QEV)
+    assert [t.title for t in got] == ["A"] and len(sent) == 1
+    assert q.on_queue_event(QEV) is None                     # espontâneo (máx. 10): pede a fila inteira
+    assert len(sent) == 2
+
+
+def test_queue_sync_request_is_idempotent_while_pending():
+    sent = []
+    q = QueueSync(lambda name, f: sent.append(name) or True)
+    q.request()
+    q.request()
+    assert sent == ["get_queue"]
+
+
+def test_queue_sync_retries_when_send_fails():
+    # desconectado: o envio falha e não pode ficar "pendente" para sempre
+    sent = []
+    q = QueueSync(lambda name, f: sent.append(name) or False)
+    q.request()
+    q.request()
+    assert sent == ["get_queue", "get_queue"]
+
+
+def test_set_queue_emits_once():
+    s = AppState()
+    seen = []
+    s.connect("changed", lambda _s, what: seen.append(what))
+    tr = [Track("spotify:track:a", "A", "")]
+    s.set_queue("spotify:playlist:p", tr)
+    s.set_queue("spotify:playlist:p", tr)
+    assert seen == ["queue"] and s.queue == tr and s.queue_context == "spotify:playlist:p"
+
+
+def test_queue_sync_reset_unblocks_after_lost_reply():
+    # desconectou ou deu erro com um pedido pendente: a resposta não vem; o próximo pedido precisa sair
+    sent = []
+    q = QueueSync(lambda name, f: sent.append(name) or True)
+    q.request()
+    q.reset()
+    q.request()
+    assert sent == ["get_queue", "get_queue"]
+
+
+def test_truncated_queue_is_recognised():
+    # o queue_changed espontâneo traz só 10: é uma fatia da fila que já temos (às vezes andou 1)
+    from hyprspot.state import queue_is_truncated
+    old = [Track(f"spotify:track:{i}", str(i), "") for i in range(36)]
+    assert queue_is_truncated(old, old[:10])
+    assert queue_is_truncated(old, old[1:11])           # a faixa avançou
+    assert not queue_is_truncated(old, old[:12])        # mais de 10: é a resposta completa
+    assert not queue_is_truncated(old[:8], old[:8])     # playlist curta: não é corte
+    assert not queue_is_truncated([], old[:10])
+    other = [Track(f"spotify:track:o{i}", str(i), "") for i in range(10)]
+    assert not queue_is_truncated(old, other)           # outra playlist

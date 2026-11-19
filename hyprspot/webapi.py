@@ -21,6 +21,7 @@ ERR_OFFLINE = "Sem conexão com o Spotify"
 ERR_QUOTA = "Limite da API atingido, tentando de novo em 1 min"
 ERR_AUTH = "Login expirado: rode hyprspot login"
 ERR_GENERIC = "Erro na API do Spotify"
+ERR_NO_DEVICE = "O hyprspot não aparece como aparelho no Spotify"
 
 
 # ---------------------------------------------------------------- funções puras
@@ -64,6 +65,10 @@ def parse_search(body: dict) -> list[Track]:
     return [_track(t) for t in ((body.get("tracks") or {}).get("items") or []) if t and t.get("uri")]
 
 
+def parse_search_playlists(body: dict) -> list[Playlist]:
+    return parse_playlists((body or {}).get("playlists") or {})[0]
+
+
 def liked_playlist(user_id: str) -> Playlist:
     """'Músicas Curtidas' como contexto de verdade (o mesmo URI que os apps oficiais usam)."""
     return Playlist(f"spotify:user:{user_id}:collection", "Músicas Curtidas", "Sua biblioteca", None)
@@ -71,7 +76,7 @@ def liked_playlist(user_id: str) -> Playlist:
 
 def search_url(q: str, offset: int) -> str:
     return API + "/search?" + urllib.parse.urlencode(
-        {"q": q, "type": "track", "limit": SEARCH_LIMIT, "offset": offset})
+        {"q": q, "type": "track,playlist", "limit": SEARCH_LIMIT, "offset": offset})
 
 
 def retry_delay(status: int, headers: dict, body: dict | None) -> float | None:
@@ -128,6 +133,7 @@ class WebApi:
         self._transport: Transport = soup_transport(session or Soup.Session())
         self._blocked_until = 0.0
         self._refreshing: list[Callable[[str | None], None]] = []
+        self._device_id: str | None = None
 
     # -- token: cb(None) = ok, cb(ERR_*) = falha --
     def _ensure_token(self, cb: Callable[[str | None], None]) -> None:
@@ -220,8 +226,18 @@ class WebApi:
 
         self._request("GET", "/me/playlists?limit=50", page)
 
-    def search(self, q: str, offset: int, cb: Callable[[list[Track] | None, str | None], None]) -> None:
-        self._request("GET", search_url(q, offset), lambda _s, d, e: cb(None, e) if e else cb(parse_search(d or {}), None))
+    def search(self, q: str, offset: int, cb: Callable[[list[Track] | None, str | None], None],
+               on_playlists: Callable[[list[Playlist]], None] | None = None) -> None:
+        """Músicas em `cb`; as playlists da mesma resposta (se pedidas) vão antes, em `on_playlists`."""
+        def done(_s, d, e):
+            if e:
+                cb(None, e)
+                return
+            if on_playlists is not None:
+                on_playlists(parse_search_playlists(d or {}))
+            cb(parse_search(d or {}), None)
+
+        self._request("GET", search_url(q, offset), done)
 
     def track(self, uri: str, cb: Callable[[Track | None], None]) -> None:
         tid = uri.rsplit(":", 1)[-1]
@@ -237,5 +253,41 @@ class WebApi:
         self._request("GET", "/me/library/contains?" + urllib.parse.urlencode({"uris": uri}),
                       lambda _s, d, e: cb(None if e or not isinstance(d, list) or not d else bool(d[0])))
 
+    def play_at(self, device_name: str, context_uri: str, track_uri: str,
+                cb: Callable[[str | None], None]) -> None:
+        """Toca `context_uri` a partir de `track_uri` no aparelho do hyprspot (o Soloist não sabe fazer isso)."""
+        body = {"context_uri": context_uri, "offset": {"uri": track_uri}}
+
+        def play(device_id: str, retry: bool):
+            def done(status, _d, err):
+                if status == 404 and retry:  # o id muda quando o Soloist reinicia
+                    self._device_id = None
+                    with_device(False)
+                    return
+                cb(err)
+            self._request("PUT", f"/me/player/play?device_id={urllib.parse.quote(device_id)}", done, body=body)
+
+        def with_device(retry: bool):
+            if self._device_id:
+                play(self._device_id, retry)
+                return
+
+            def got(_s, d, err):
+                if err:
+                    cb(err)
+                    return
+                dev = next((x for x in (d or {}).get("devices", []) if x.get("name") == device_name), None)
+                if not dev or not dev.get("id"):
+                    cb(ERR_NO_DEVICE)
+                    return
+                self._device_id = dev["id"]
+                play(self._device_id, retry)
+
+            self._request("GET", "/me/player/devices", got)
+
+        with_device(True)
+
     def set_liked(self, uri: str, liked: bool, cb: Callable[[bool], None]) -> None:
-        self._request("PUT" if liked else "DELETE", "/me/library", lambda _s, _d, e: cb(e is None), body={"uris": [uri]})
+        # o URI vai no endereço: no corpo o Spotify responde 400 "Missing required field: uris"
+        self._request("PUT" if liked else "DELETE", "/me/library?" + urllib.parse.urlencode({"uris": uri}),
+                      lambda _s, _d, e: cb(e is None))

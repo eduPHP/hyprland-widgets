@@ -39,7 +39,24 @@ def test_parse_search_empty():
 def test_search_url_encodes():
     u = search_url("água de março", 10)
     assert "q=%C3%A1gua+de+mar%C3%A7o" in u
-    assert "type=track" in u and "limit=10" in u and "offset=10" in u
+    assert "limit=10" in u and "offset=10" in u
+
+
+def test_search_url_asks_tracks_and_playlists():
+    assert "type=track%2Cplaylist" in search_url("rock", 0)
+
+
+def test_parse_search_playlists():
+    from hyprspot.webapi import parse_search_playlists
+    body = {"playlists": {"items": [
+        None,  # a API às vezes manda buracos na lista
+        {"uri": "spotify:playlist:a", "name": "Rock Classics", "owner": {"display_name": "Spotify"},
+         "images": [{"url": "http://x/a.jpg", "width": 300}]},
+    ]}}
+    pls = parse_search_playlists(body)
+    assert [(p.uri, p.name, p.owner, p.image_url) for p in pls] == [
+        ("spotify:playlist:a", "Rock Classics", "Spotify", "http://x/a.jpg")]
+    assert parse_search_playlists({}) == []
 
 
 def test_retry_delay_quota():

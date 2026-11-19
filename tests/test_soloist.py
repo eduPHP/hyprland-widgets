@@ -70,3 +70,32 @@ def test_connection_limits_are_raised():
     SoloistClient._configure(c)
     assert c.calls["set_max_incoming_payload_size"] == (0,)
     assert c.calls["set_keepalive_pong_timeout"] == (30,)
+
+
+# ---------------------------------------------------------------- fila (get_queue / queue_changed)
+def _queue_fixture():
+    import json
+    from pathlib import Path
+    return json.loads((Path(__file__).parent / "fixtures" / "queue_changed.json").read_text())
+
+
+def test_parse_queue_reads_upcoming_in_order():
+    from hyprspot.soloist import parse_queue
+    titles = [t.title for t in parse_queue(_queue_fixture())]
+    assert titles == ["Last of the American Girls", "When I Come Around", "The American Dream Is Killing Me"]
+
+
+def test_parse_queue_skips_non_tracks():
+    from hyprspot.soloist import parse_queue
+    tracks = parse_queue(_queue_fixture())
+    assert all(t.uri.startswith("spotify:track:") for t in tracks)
+    assert parse_queue({"type": "queue_changed"}) == []
+
+
+def test_parse_queue_keeps_only_the_playlist_itself():
+    # revisão: músicas postas na fila à mão ou do autoplay não são da playlist; clicar nelas falharia
+    from hyprspot.soloist import parse_queue
+    ev = _queue_fixture()
+    ev["upcoming"][0]["source"] = "queue"
+    ev["upcoming"][2]["source"] = "autoplay"
+    assert [t.title for t in parse_queue(ev)] == ["The American Dream Is Killing Me"]

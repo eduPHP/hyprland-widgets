@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, replace
+from typing import Callable
 
 import gi
 
@@ -10,7 +11,7 @@ gi.require_version("GObject", "2.0")
 from gi.repository import GObject  # noqa: E402
 
 from hyprspot.model import Playlist, Track  # noqa: E402
-from hyprspot.soloist import entity_to_track  # noqa: E402
+from hyprspot.soloist import entity_to_track, parse_queue  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -142,6 +143,62 @@ def skip_message(titles: list[str]) -> str:
     return f"“{titles[0]}” indisponível, pulada" if titles and titles[0] else "Faixa indisponível, pulada"
 
 
+class QueueSync:
+    """Mantém a fila inteira do Soloist sem cair em laço.
+
+    O `queue_changed` espontâneo traz no máximo 10 entradas; a fila inteira vem pedindo
+    `get_queue` (limit 0), cuja resposta também chega como `queue_changed`.
+    """
+
+    def __init__(self, send: Callable[[str, dict], bool]):
+        self._send = send
+        self._pending = False
+
+    def reset(self) -> None:
+        """Esquece o pedido pendente (desconexão ou erro: a resposta não vai chegar)."""
+        self._pending = False
+
+    def request(self) -> None:
+        if not self._pending:
+            self._pending = bool(self._send("get_queue", {"limit": 0}))
+
+    def on_queue_event(self, ev: dict) -> list[Track] | None:
+        if self._pending:
+            self._pending = False
+            return parse_queue(ev)
+        self.request()
+        return None
+
+
+def playlist_click_commands(pb: Playback, uri: str) -> list[tuple[str, dict]]:
+    """Clicar numa playlist toca; se ela já é o que está tocando, só abre a tela."""
+    return [] if pb.context_uri == uri else [("play", {"uri": uri})]
+
+
+def play_button_commands(uri: str, shuffle: bool) -> list[tuple[str, dict]]:
+    return [("set_shuffle", {"enabled": shuffle}), ("play", {"uri": uri})]
+
+
+SKIP_FALLBACK_MAX = 10
+SPONTANEOUS_QUEUE_MAX = 10  # o queue_changed espontâneo do Soloist traz no máximo 10
+
+
+def queue_is_truncated(old: list[Track], new: list[Track]) -> bool:
+    """`new` é só o recorte de 10 do evento espontâneo de uma fila maior que já temos."""
+    n = len(new)
+    if not new or n > SPONTANEOUS_QUEUE_MAX or len(old) <= n:
+        return False
+    return new == old[:n] or new == old[1:1 + n]  # a faixa pode ter avançado uma
+
+
+def skip_count(queue: list[Track], uri: str) -> int | None:
+    """Quantos 'próxima' até a música (alternativa quando a Web API não consegue tocá-la direto)."""
+    for i, t in enumerate(queue[:SKIP_FALLBACK_MAX]):
+        if t.uri == uri:
+            return i + 1
+    return None
+
+
 PLAYLISTS_MAX_AGE_S = 600
 
 
@@ -184,12 +241,15 @@ class AppState(GObject.Object):
         self.playlists: list[Playlist] = []
         self.search_query = ""
         self.search_results: list[Track] = []
+        self.search_playlists: list[Playlist] = []
         self.ui_mode = "compact"
         self.tab = "playlists"
         self.error: str | None = None
         self.playlists_error: str | None = None
         self.liked: bool | None = None
         self.soloist_days_left: int | None = None
+        self.queue: list[Track] = []
+        self.queue_context: str | None = None
 
     def set_playback(self, pb: Playback) -> None:
         if pb != self.playback:
@@ -206,9 +266,16 @@ class AppState(GObject.Object):
             self.playlists_error = msg
             self.emit("changed", "playlists")
 
-    def set_search(self, query: str, results: list[Track]) -> None:
-        if (query, results) != (self.search_query, self.search_results):
-            self.search_query, self.search_results = query, list(results)
+    def set_queue(self, context_uri: str | None, tracks: list[Track]) -> None:
+        if (context_uri, tracks) != (self.queue_context, self.queue):
+            self.queue_context, self.queue = context_uri, list(tracks)
+            self.emit("changed", "queue")
+
+    def set_search(self, query: str, results: list[Track], playlists: list[Playlist] | None = None) -> None:
+        """`playlists=None` mantém as atuais (páginas seguintes da busca só trazem músicas)."""
+        pls = self.search_playlists if playlists is None else list(playlists)
+        if (query, results, pls) != (self.search_query, self.search_results, self.search_playlists):
+            self.search_query, self.search_results, self.search_playlists = query, list(results), pls
             self.emit("changed", "search")
 
     def set_ui(self, mode: str | None = None, tab: str | None = None) -> None:

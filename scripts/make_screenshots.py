@@ -57,6 +57,20 @@ PLAYLISTS = [
     Playlist("spotify:playlist:p5", "Riffs para codar", "devbeats", "art:6"),
     Playlist("spotify:playlist:p6", "Estrada e Guitarra", "joao.p", "art:7"),
 ]
+# fila "A seguir" da tela da playlist (Rock Clássico tocando)
+QUEUE = [
+    Track("spotify:track:q1", "Smoke on the Water", "Deep Purple", "", 340_000, "art:13"),
+    Track("spotify:track:q2", "Back in Black", "AC/DC", "", 255_000, "art:14"),
+    Track("spotify:track:q3", "Sweet Child O' Mine", "Guns N' Roses", "", 356_000, "art:15"),
+    Track("spotify:track:q4", "Hotel California", "Eagles", "", 391_000, "art:16"),
+    Track("spotify:track:q5", "Paranoid", "Black Sabbath", "", 168_000, "art:17"),
+    Track("spotify:track:q6", "Born to Be Wild", "Steppenwolf", "", 211_000, "art:18"),
+    Track("spotify:track:q7", "Stairway to Heaven", "Led Zeppelin", "", 482_000, "art:19"),
+]
+SEARCH_PLAYLISTS = [
+    Playlist("spotify:playlist:s1", "Highway Rock", "rockzone", "art:20"),
+    Playlist("spotify:playlist:s2", "Road Trip Classics", "joao.p", "art:21"),
+]
 QUERY = "highway"
 RESULTS = [
     NOW,
@@ -150,7 +164,8 @@ def widget_shots(out: Path, done) -> None:
     art = FakeArt()
     state = AppState()
     state.set_playback(Playback(connected=True, logged_in=True, is_active=True, status="paused", track=NOW,
-                                position_ms=82_000, volume=56))
+                                context_uri=PLAYLISTS[1].uri, position_ms=82_000, volume=56))
+    state.set_queue(PLAYLISTS[1].uri, QUEUE)
     state.set_liked(True)
     state.set_playlists(PLAYLISTS)
     noop = lambda *_a, **_k: None  # noqa: E731
@@ -165,12 +180,19 @@ def widget_shots(out: Path, done) -> None:
         render(expanded, ExpandedView.WIDTH, ExpandedView.HEIGHT, 16, out / "expanded-playlists.png")
         state.set_ui(tab="search")
         expanded.entry.set_text(QUERY)
-        state.set_search(QUERY, RESULTS)
+        state.set_search(QUERY, RESULTS, SEARCH_PLAYLISTS)
         GLib.timeout_add(700, step2)
         return False
 
     def step2():
         render(expanded, ExpandedView.WIDTH, ExpandedView.HEIGHT, 16, out / "expanded-search.png")
+        state.set_ui(tab="playlists")
+        expanded.open_playlist(PLAYLISTS[1], "playlists")
+        GLib.timeout_add(700, step3)
+        return False
+
+    def step3():
+        render(expanded, ExpandedView.WIDTH, ExpandedView.HEIGHT, 16, out / "expanded-playlist-page.png")
         for w in wins:
             w.destroy()
         done()
