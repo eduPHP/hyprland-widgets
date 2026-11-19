@@ -213,7 +213,7 @@ Design de referência: canvas com protótipo clicável, estados e tokens (fora d
 - Estados do compacto: tocando, pausado (barra cinza), hover, outro dispositivo ("No celular · artista"), nada tocando, falha (ponto vermelho por 2 s + texto do erro).
 - Animação de expandir/recolher: ≤120 ms (ou nenhuma, se layer-shell + resize ficar com tremido; preferir instantâneo a feio).
 - Ícones simbólicos GTK (`media-playback-start-symbolic` etc.).
-- Blur: `layerrule = match:namespace hyprspot, blur on, ignore_alpha 0.5` (namespace da layer surface = `hyprspot`). O `ignore_alpha` impede que o blur pinte os cantos transparentes.
+- Blur: `layerrule = match:namespace hyprspot, blur on, ignore_alpha 0.5, no_anim on` (namespace da layer surface = `hyprspot`). O `ignore_alpha` impede que o blur pinte os cantos transparentes. O `no_anim` evita que a animação `layers` do Hyprland estique a imagem antiga ao expandir e recolher.
 
 ## 11. Configuração (`~/.config/hyprspot/config.toml`)
 
