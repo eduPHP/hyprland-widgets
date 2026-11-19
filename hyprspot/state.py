@@ -154,6 +154,10 @@ class QueueSync:
         self._send = send
         self._pending = False
 
+    def reset(self) -> None:
+        """Esquece o pedido pendente (desconexão ou erro: a resposta não vai chegar)."""
+        self._pending = False
+
     def request(self) -> None:
         if not self._pending:
             self._pending = bool(self._send("get_queue", {"limit": 0}))
@@ -164,6 +168,26 @@ class QueueSync:
             return parse_queue(ev)
         self.request()
         return None
+
+
+def playlist_click_commands(pb: Playback, uri: str) -> list[tuple[str, dict]]:
+    """Clicar numa playlist toca; se ela já é o que está tocando, só abre a tela."""
+    return [] if pb.context_uri == uri else [("play", {"uri": uri})]
+
+
+def play_button_commands(uri: str, shuffle: bool) -> list[tuple[str, dict]]:
+    return [("set_shuffle", {"enabled": shuffle}), ("play", {"uri": uri})]
+
+
+SKIP_FALLBACK_MAX = 10
+
+
+def skip_count(queue: list[Track], uri: str) -> int | None:
+    """Quantos 'próxima' até a música (alternativa quando a Web API não consegue tocá-la direto)."""
+    for i, t in enumerate(queue[:SKIP_FALLBACK_MAX]):
+        if t.uri == uri:
+            return i + 1
+    return None
 
 
 PLAYLISTS_MAX_AGE_S = 600

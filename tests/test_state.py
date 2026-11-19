@@ -237,3 +237,13 @@ def test_set_queue_emits_once():
     s.set_queue("spotify:playlist:p", tr)
     s.set_queue("spotify:playlist:p", tr)
     assert seen == ["queue"] and s.queue == tr and s.queue_context == "spotify:playlist:p"
+
+
+def test_queue_sync_reset_unblocks_after_lost_reply():
+    # desconectou ou deu erro com um pedido pendente: a resposta não vem; o próximo pedido precisa sair
+    sent = []
+    q = QueueSync(lambda name, f: sent.append(name) or True)
+    q.request()
+    q.reset()
+    q.request()
+    assert sent == ["get_queue", "get_queue"]
