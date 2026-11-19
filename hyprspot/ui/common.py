@@ -20,6 +20,14 @@ def load_css() -> None:
                                               Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
 
 
+# atalhos dos botões do player, mostrados na dica (com o mouse sobre o compacto, ou no expandido)
+KEY_PREV, KEY_NEXT, KEY_PLAY = "←", "→", "Espaço"
+
+
+def with_key(text: str, key: str) -> str:
+    return f"{text} ({key})"
+
+
 def icon_button(icon: str, label: str, on_click: Callable[[], None], *classes: str, size: int = 16) -> Gtk.Button:
     b = Gtk.Button()
     img = Gtk.Image.new_from_icon_name(icon)

@@ -11,7 +11,8 @@ from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from hyprspot.presenter import fmt_time, now_playing  # noqa: E402
 from hyprspot.state import AppState, clock_ms, position_now  # noqa: E402
-from hyprspot.ui.common import icon_button, label, set_icon, toggle_class  # noqa: E402
+from hyprspot.ui.common import (KEY_NEXT, KEY_PLAY, KEY_PREV, icon_button, label, set_icon,  # noqa: E402
+                                toggle_class, with_key)
 from hyprspot.ui.compact import context_name  # noqa: E402
 from hyprspot.ui.cover import ArtLoader, Cover  # noqa: E402
 from hyprspot.ui.lists import make_list, playlist_row, replace_rows, track_row  # noqa: E402
@@ -161,10 +162,11 @@ class ExpandedView(Gtk.Box):
         ctr = Gtk.Box(spacing=10, halign=Gtk.Align.CENTER)
         self.shuffle = icon_button("media-playlist-shuffle-symbolic", "Aleatório",
                                    lambda: self.on_command("set_shuffle", {"enabled": not self.state.playback.shuffle}))
-        self.prev = icon_button("media-skip-backward-symbolic", "Faixa anterior",
+        self.prev = icon_button("media-skip-backward-symbolic", with_key("Faixa anterior", KEY_PREV),
                                 lambda: self.on_command("skip_prev", {}), size=18)
-        self.play = icon_button("media-playback-start-symbolic", "Tocar", self._toggle_play, "hs-play", "big", size=18)
-        self.next = icon_button("media-skip-forward-symbolic", "Próxima faixa",
+        self.play = icon_button("media-playback-start-symbolic", with_key("Tocar", KEY_PLAY), self._toggle_play,
+                                "hs-play", "big", size=18)
+        self.next = icon_button("media-skip-forward-symbolic", with_key("Próxima faixa", KEY_NEXT),
                                 lambda: self.on_command("skip_next", {}), size=18)
         self.repeat = icon_button("media-playlist-repeat-symbolic", "Repetir",
                                   lambda: self.on_command("set_repeat", {"mode": REPEAT_NEXT[self.state.playback.repeat]}))
@@ -272,6 +274,9 @@ class ExpandedView(Gtk.Box):
         if keyval == Gdk.KEY_space and not typing:
             self._toggle_play()
             return True
+        if keyval in (Gdk.KEY_Left, Gdk.KEY_Right) and not typing:
+            self.on_command("skip_prev" if keyval == Gdk.KEY_Left else "skip_next", {})
+            return True
         return False
 
     def _on_seek(self, _scale, _scroll, value) -> bool:
@@ -360,7 +365,7 @@ class ExpandedView(Gtk.Box):
         for w in (self.prev, self.next, self.shuffle, self.repeat, self.seek, self.volume):
             w.set_sensitive(has_track)
         set_icon(self.play, "media-playback-pause-symbolic" if v.playing else "media-playback-start-symbolic")
-        self.play.set_tooltip_text("Pausar" if v.playing else "Tocar")
+        self.play.set_tooltip_text(with_key("Pausar" if v.playing else "Tocar", KEY_PLAY))
         toggle_class(self.shuffle, "on", pb.shuffle)
         toggle_class(self.repeat, "on", pb.repeat != "off")
         set_icon(self.repeat, "media-playlist-repeat-song-symbolic" if pb.repeat == "track" else "media-playlist-repeat-symbolic")

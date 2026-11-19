@@ -73,3 +73,49 @@ def test_compact_key_action():
     assert compact_key_action(Gdk.KEY_Q) == "quit"
     assert compact_key_action(Gdk.KEY_space) == "play-pause"
     assert compact_key_action(Gdk.KEY_a) is None
+
+
+class NoArt:
+    def load(self, url, cb):
+        pass
+
+
+def test_arrows_skip_tracks_in_compact():
+    # com o mouse sobre o compacto: ← volta, → avança (as teclas de mídia ficam com o sistema)
+    from gi.repository import Gdk
+    from hyprspot.ui.compact import compact_key_action
+    assert compact_key_action(Gdk.KEY_Left) == "prev"
+    assert compact_key_action(Gdk.KEY_Right) == "next"
+
+
+def test_arrows_skip_tracks_in_expanded_unless_typing():
+    import gi
+    gi.require_version("Gtk", "4.0")
+    from gi.repository import Gdk, Gtk
+    Gtk.init()
+    from hyprspot.state import AppState
+    from hyprspot.ui.expanded import ExpandedView
+
+    sent = []
+    v = ExpandedView(AppState(), lambda n, f: sent.append(n), lambda *_: None, lambda: None, lambda: None, NoArt())
+    assert v._on_key(None, Gdk.KEY_Right, 0, 0) is True
+    assert v._on_key(None, Gdk.KEY_Left, 0, 0) is True
+    assert sent == ["skip_next", "skip_prev"]
+
+
+@pytest.mark.parametrize("which", ["compact", "expanded"])
+def test_player_buttons_show_their_shortcut(which):
+    import gi
+    gi.require_version("Gtk", "4.0")
+    from gi.repository import Gtk
+    Gtk.init()
+    from hyprspot.state import AppState
+    from hyprspot.ui.compact import CompactView
+    from hyprspot.ui.expanded import ExpandedView
+
+    noop = lambda *_a, **_k: None  # noqa: E731
+    v = (CompactView(AppState(), noop, noop, NoArt()) if which == "compact"
+         else ExpandedView(AppState(), noop, noop, noop, noop, NoArt()))
+    assert v.prev.get_tooltip_text() == "Faixa anterior (←)"
+    assert v.next.get_tooltip_text() == "Próxima faixa (→)"
+    assert v.play.get_tooltip_text() == "Tocar (Espaço)"

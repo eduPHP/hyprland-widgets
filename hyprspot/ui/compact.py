@@ -10,12 +10,13 @@ from gi.repository import GLib, Gtk  # noqa: E402
 
 from hyprspot.presenter import now_playing  # noqa: E402
 from hyprspot.state import AppState, clock_ms, position_now  # noqa: E402
-from hyprspot.ui.common import icon_button, label, set_icon, toggle_class  # noqa: E402
+from hyprspot.ui.common import (KEY_NEXT, KEY_PLAY, KEY_PREV, icon_button, label, set_icon,  # noqa: E402
+                                toggle_class, with_key)
 from hyprspot.ui.cover import ArtLoader, Cover  # noqa: E402
 
 OnCommand = Callable[[str, dict], None]
 
-_COMPACT_KEYS = {"q": "quit", "Q": "quit", "space": "play-pause"}
+_COMPACT_KEYS = {"q": "quit", "Q": "quit", "space": "play-pause", "Left": "prev", "Right": "next"}
 
 
 def compact_key_action(keyval: int) -> str | None:
@@ -64,9 +65,12 @@ class CompactView(Gtk.Overlay):
         hit.set_child(inner)
         root.append(hit)
 
-        self.prev = icon_button("media-skip-backward-symbolic", "Faixa anterior", lambda: on_command("skip_prev", {}))
-        self.play = icon_button("media-playback-start-symbolic", "Tocar", self._toggle_play, "hs-play")
-        self.next = icon_button("media-skip-forward-symbolic", "Próxima faixa", lambda: on_command("skip_next", {}))
+        self.prev = icon_button("media-skip-backward-symbolic", with_key("Faixa anterior", KEY_PREV),
+                                lambda: on_command("skip_prev", {}))
+        self.play = icon_button("media-playback-start-symbolic", with_key("Tocar", KEY_PLAY), self._toggle_play,
+                                "hs-play")
+        self.next = icon_button("media-skip-forward-symbolic", with_key("Próxima faixa", KEY_NEXT),
+                                lambda: on_command("skip_next", {}))
         controls = Gtk.Box(spacing=2, valign=Gtk.Align.CENTER)
         for b in (self.prev, self.play, self.next):
             controls.append(b)
@@ -115,7 +119,7 @@ class CompactView(Gtk.Overlay):
         for b in (self.prev, self.play, self.next):
             b.set_sensitive(v.enabled)
         set_icon(self.play, "media-playback-pause-symbolic" if v.playing else "media-playback-start-symbolic")
-        self.play.set_tooltip_text("Pausar" if v.playing else "Tocar")
+        self.play.set_tooltip_text(with_key("Pausar" if v.playing else "Tocar", KEY_PLAY))
         self.dot.set_visible(v.offline or bool(self.state.error))
         toggle_class(self.progress, "paused", v.paused)
         self._tick()
