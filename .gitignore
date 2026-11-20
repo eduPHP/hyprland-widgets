@@ -1,0 +1,24 @@
+# --- never commit secrets or personal data ---
+# Runtime config, keys and tokens live in ~/.config/<widget>/, never in this repo.
+.env
+.env.*
+*.env
+!*.env.example
+*.key
+*.pem
+*.p12
+token.json
+*.token
+credentials*.json
+client_secret*.json
+secrets*
+config.toml
+!config.example.toml
+*.ics
+
+# --- build / tool noise ---
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+.superpowers/
