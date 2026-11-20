@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# hypr-ui-solo <name>: close every hypr-ui popover except <name>.
+# Each widget runs this as it opens, so only one popover is on screen at a time.
+# Names: wifi, sound, hyprbt, hyprcal, hyprpower.
+me=${1:-}
+run=${XDG_RUNTIME_DIR:-/tmp}
+
+if [[ $me != wifi && -e $run/wifi-widget.open ]]; then
+  gdbus call --session --dest dev.edu.WifiWidget --object-path /dev/edu/WifiWidget \
+    --method org.gtk.Actions.Activate close '[]' '{}' >/dev/null 2>&1 &
+fi
+if [[ $me != sound && -e $run/sound-widget.open ]]; then
+  sound-widget close >/dev/null 2>&1 &
+fi
+if [[ $me != hyprbt && -e $run/hyprbt.open ]]; then
+  qs -c hyprbt ipc call bt close >/dev/null 2>&1 &
+fi
+if [[ $me != hyprcal && -e $run/hyprcal.open ]]; then
+  hyprcal close >/dev/null 2>&1 &
+fi
+if [[ $me != hyprpower && -e $run/hyprpower.open ]]; then
+  hyprpower close >/dev/null 2>&1 &
+fi
+wait
