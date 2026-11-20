@@ -1,0 +1,129 @@
+/* Wi-Fi popover: only what is specific to this widget.
+ * Colours, the popover frame, header, buttons, switch, card, tabs, rows, badges,
+ * inputs and the key-hint footer come from the shared hypr-ui stylesheet
+ * (~/.config/hypr-ui, loaded first by hypr_ui.load_css). */
+
+/* connection card */
+.status { font-size: 10px; color: @muted; }
+.status .dot { color: @green; font-size: 9px; }
+.status.ok { color: @green; }
+.ssid-big { font-size: 18px; font-weight: bold; }
+
+.down { color: @blue; font-size: 11px; }
+.up { color: @purple; font-size: 11px; }
+.meta { color: @muted; font-size: 10px; }
+.k { color: @faint; font-size: 10px; }
+.v { font-size: 11px; }
+
+/* networks list */
+.row .idx { color: @faint; font-size: 10px; min-width: 14px; }
+.row .name { font-weight: bold; }
+.row.connected .name { color: @blue; }
+.row .state { color: @muted; font-size: 10px; }
+.row .state.connected { color: @green; }
+.row .state.busy { color: @blue; }
+.row .state.error { color: @red; }
+.row .lock { color: @faint; font-size: 11px; }
+
+/* signal bars - DrawingArea reads its color from here */
+.bars { color: @faint; }
+.bars.strong { color: @fg; }
+.row.connected .bars { color: @blue; }
+.bars.weak { color: @amber; }
+
+.graph { color: @blue; }
+
+/* inline passphrase */
+.pass {
+  background: alpha(@surface, 0.7);
+  border: 1px solid @line;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 2px 0 4px 0;
+}
+.pass .label { color: @muted; font-size: 10px; }
+.pass .label b { color: @fg; }
+button.eye {
+  background: @bg;
+  border: 1px solid @line;
+  border-radius: 7px;
+  padding: 4px 9px;
+  min-height: 0;
+  box-shadow: none;
+  color: @muted;
+}
+.error-text { color: @red; font-size: 10px; }
+
+/* radio off */
+.off-icon { color: @faint; font-size: 22px; }
+.off-title { font-weight: bold; }
+.off-sub { color: @faint; font-size: 10px; }
+
+/* ---- panel switcher (wifi / vpn / dns) ---- */
+.tab-name { color: @muted; font-size: 11px; }
+button.tab.active .tab-name { color: @fg; font-weight: bold; }
+.tab-dot { color: @faint; font-size: 7px; }
+.tab-dot.on { color: @green; }
+
+/* ---- shared card bits for vpn / dns ---- */
+.big-icon {
+  background: @raised;
+  border: 1px solid @line;
+  border-radius: 8px;
+  min-width: 34px;
+  min-height: 34px;
+  font-size: 16px;
+  color: @blue;
+}
+.big-icon.ok { color: @green; border-color: alpha(@green, 0.35); }
+.big-icon.warn { color: @amber; border-color: alpha(@amber, 0.35); }
+.vpn-state { font-size: 10px; color: @muted; }
+.vpn-state.ok { color: @green; }
+.vpn-state.warn { color: @amber; }
+.card-note { color: @muted; font-size: 10px; }
+.card-note b { color: @fg; }
+.note {
+  background: alpha(@amber, 0.08);
+  border: 1px solid alpha(@amber, 0.3);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: @amber;
+  font-size: 10px;
+}
+.avg { color: @green; font-size: 17px; font-weight: bold; }
+
+.opt-title { font-weight: bold; font-size: 11px; }
+.opt-sub { color: @faint; font-size: 9px; }
+
+/* vpn tunnel rows */
+.cc {
+  background: @line;
+  border-radius: 5px;
+  min-width: 30px;
+  padding: 4px 0;
+  color: @muted;
+  font-size: 9px;
+  font-weight: bold;
+}
+.cc.up { background: alpha(@green, 0.18); color: @green; }
+.ms { font-size: 10px; }
+.ms.fast { color: @green; }
+.ms.mid { color: @fg; }
+.ms.slow { color: @amber; }
+
+/* dns resolver rows */
+.radio { font-size: 14px; color: @faint; }
+.radio.on { color: @blue; }
+.row.current .name { color: @fg; }
+.tag {
+  background: @line;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: @muted;
+  font-size: 9px;
+}
+.ms-plain { color: @muted; font-size: 10px; min-width: 38px; }
+.lat { color: @faint; }
+.lat.fast { color: @green; }
+.lat.mid { color: @blue; }
+.lat.slow { color: @amber; }

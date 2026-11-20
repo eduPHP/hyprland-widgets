@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Wi-Fi widget entry point.
+
+  wifi-widget                 toggle the popover (starts it on first run)
+  wifi-widget --status        JSON line for the waybar custom/wifi module
+  wifi-widget --radio-toggle  turn the radio on/off
+  wifi-widget --rescan        trigger a scan
+  wifi-widget --cycle up|down switch to the next/previous saved network in range
+"""
+
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(os.path.realpath(__file__)).parent
+sys.path.insert(0, str(HERE))
+RUN = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
+OPEN_FLAG = RUN / "wifi-widget.open"
+RATE_FILE = RUN / "wifi-widget.rate"
+LAYER_SHELL = "/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0"
+
+BARS = ["󰢿", "󰢼", "󰢽", "󰢾", "󰢾"]  # md signal_cellular outline/1/2/3
+
+
+def poke_waybar():
+    subprocess.run(["pkill", "-RTMIN+9", "-x", "waybar"], capture_output=True)
+
+
+def notify(msg, body=""):
+    subprocess.Popen(["notify-send", "-a", "Wi-Fi", "-i", "network-wireless", msg, body])
+
+
+def rates(dev):
+    """(down, up) Mb/s since the previous --status call."""
+    import nm
+
+    now = time.time()
+    rx, tx = nm.traffic_bytes(dev)
+    down = up = 0.0
+    try:
+        t0, rx0, tx0 = map(float, RATE_FILE.read_text().split())
+        dt = now - t0
+        if 0 < dt < 120:
+            down, up = (rx - rx0) * 8 / 1e6 / dt, (tx - tx0) * 8 / 1e6 / dt
+    except (OSError, ValueError):
+        pass
+    RATE_FILE.write_text(f"{now} {rx} {tx}")
+    return down, up
+
+
+def status():
+    import nm
+
+    is_open = OPEN_FLAG.exists()
+    out = {"text": "", "class": [], "tooltip": ""}
+    dev = nm.wifi_device()
+    if not dev or not nm.wifi_enabled():
+        out.update(text="󰖪 off", tooltip="wifi radio off · middle-click to turn on")
+        out["class"].append("off")
+    else:
+        state, _ = nm.device_state(dev)
+        link = nm.link_info(dev) if state == "connected" else None
+        if state.startswith("connecting") or state in ("prepare", "config", "ip-config", "ip-check", "need-auth"):
+            out.update(text="󰑓 joining…", tooltip="associating…")
+            out["class"].append("associating")
+        elif not link:
+            out.update(text="󰖪 offline", tooltip="not connected · click to pick a network")
+            out["class"].append("disconnected")
+        else:
+            esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;")  # noqa: E731
+            weak = link.signal < 25
+            bars = BARS[min(4, link.signal // 20)]
+            out["text"] = bars
+            out["class"].append("weak" if weak else "connected")
+            down, up = rates(dev)
+            fmt = lambda v: f"{v:.0f}" if v >= 10 else f"{v:.1f}"  # noqa: E731
+            out["tooltip"] = (
+                f"<b>{esc(link.ssid)}</b>    <span color='#9ece6a'>{link.signal}%</span>\n"
+                f"<span color='#737aa2'>ipv4</span>     {link.ipv4}\n"
+                f"<span color='#737aa2'>link</span>     {link.band} · {link.bitrate_mbps:.0f} Mb/s\n"
+                f"<span color='#737aa2'>traffic</span>  <span color='#7aa2f7'>↓ {fmt(down)}</span>"
+                f" <span color='#bb9af7'>↑ {fmt(up)}</span> Mb/s"
+            )
+    if out["class"] and out["class"][0] in ("connected", "weak"):
+        try:
+            import vpn
+
+            prot = vpn.protecting(vpn.tunnels())
+        except Exception:  # a VPN lookup problem must never blank the wifi pill
+            prot = None
+        if prot:
+            chip = f"<span background='#9ece6a2e' color='#9ece6a'> \U000f0565 {prot.badge} </span>"
+            out["text"] = f"{chip}  {out['text']}"
+            out["tooltip"] += f"\n<span color='#737aa2'>vpn</span>      <span color='#9ece6a'>{prot.name}</span>"
+            out["class"].append("vpn")
+    if is_open:
+        out["class"].append("open")
+    print(json.dumps(out, ensure_ascii=False), flush=True)
+
+
+def radio_toggle():
+    import nm
+
+    on = not nm.wifi_enabled()
+    nm.set_wifi(on)
+    notify("Wi-Fi on" if on else "Wi-Fi off")
+    poke_waybar()
+
+
+def rescan():
+    subprocess.run(["nmcli", "dev", "wifi", "rescan"], capture_output=True)
+    notify("Scanning for networks…")
+
+
+def cycle(direction):
+    import nm
+
+    nets = [n for n in nm.scan() if n.saved_as]
+    if len(nets) < 2:
+        return
+    nets.sort(key=lambda n: n.ssid.lower())
+    cur = next((i for i, n in enumerate(nets) if n.in_use), -1)
+    nxt = nets[(cur + (1 if direction == "down" else -1)) % len(nets)]
+    notify(f"Switching to {nxt.ssid}…")
+    try:
+        nm.connect(nxt)
+        notify(f"Connected to {nxt.ssid}")
+    except nm.NMError as e:
+        notify(f"Could not connect to {nxt.ssid}", str(e))
+    poke_waybar()
+
+
+def popover():
+    # gtk4-layer-shell must be loaded before libwayland-client
+    if LAYER_SHELL not in os.environ.get("LD_PRELOAD", ""):
+        os.environ["LD_PRELOAD"] = ":".join(filter(None, [LAYER_SHELL, os.environ.get("LD_PRELOAD")]))
+        os.execv(sys.executable, [sys.executable, os.path.realpath(__file__), *sys.argv[1:]])
+    import widget
+
+    widget.main()
+
+
+if __name__ == "__main__":
+    arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    {
+        "--status": status,
+        "--radio-toggle": radio_toggle,
+        "--rescan": rescan,
+        "--cycle": lambda: cycle(sys.argv[2] if len(sys.argv) > 2 else "down"),
+        "": popover,
+    }.get(arg, lambda: sys.exit(__doc__))()
