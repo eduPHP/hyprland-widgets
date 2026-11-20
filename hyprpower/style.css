@@ -1,0 +1,133 @@
+/* hyprpower: only what is specific to the power + display popover.
+ * Colours, the popover frame, header, buttons, switch, card, tabs, rows and the
+ * key-hint footer come from the shared hypr-ui stylesheet (~/.config/hypr-ui),
+ * loaded first by hypr_ui.load_css. */
+
+
+.glyph { font-size: 15px; min-width: 18px; }
+.row-glyph { color: @muted; }
+.row { padding: 6px 8px; }
+
+/* segmented controls (base .tabs + button.tab) */
+.seg button.tab { padding: 5px 0; }
+.seg button.tab label { color: @muted; }
+.seg button.tab.active label { color: @bright; }
+.seg.small button.tab label { font-size: 11px; }
+.seg button.tab.p-power-saver label { color: @green; }
+.seg button.tab.p-balanced label { color: @blue; }
+.seg button.tab.p-performance label { color: @orange; }
+.seg:disabled button.tab label { color: @faint; }
+.main-tabs button.tab label { font-size: 12px; }
+
+/* battery hero */
+.hero { font-size: 22px; font-weight: bold; color: @bright; }
+.state { font-size: 11px; }
+.rate { font-size: 11px; }
+.axis { font-size: 9px; color: @faint; }
+
+/* stat tiles */
+.stat {
+  background: @surface;
+  border: 1px solid @line;
+  border-radius: 7px;
+  padding: 6px 8px;
+}
+.stat-key { font-size: 9px; color: @muted; }
+.stat-val { font-size: 12px; color: @bright; }
+.stat-sub { font-size: 9px; color: @faint; }
+
+.hint-line { font-size: 10px; color: @muted; padding: 0 2px; }
+
+/* custom charge thresholds */
+.custom {
+  background: @surface;
+  border: 1px solid @line;
+  border-radius: 7px;
+  padding: 4px 8px;
+}
+.thr { min-width: 34px; color: @bright; }
+.thr.end { color: @amber; }
+button.step {
+  background: none;
+  border: 1px solid @line;
+  border-radius: 6px;
+  box-shadow: none;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+}
+button.step:hover { background: @raised; }
+
+/* brightness slider (same as sound-widget) */
+scale { padding: 6px 0; margin: 0; }
+scale trough {
+  min-height: 6px;
+  border-radius: 999px;
+  background: @track;
+  border: none;
+}
+scale highlight { border-radius: 999px; background: @blue; border: none; min-height: 6px; }
+scale slider {
+  min-width: 14px;
+  min-height: 14px;
+  margin: -5px 0;
+  border-radius: 999px;
+  background: @bright;
+  border: 3px solid @blue;
+  box-shadow: none;
+}
+.val { min-width: 36px; color: @bright; }
+
+/* monitor map + card */
+.map { background: @surface; border: 1px solid @line; border-radius: 10px; }
+.dashed { border: 1px dashed @frame; border-radius: 7px; padding: 8px 10px; }
+.mon-title { font-weight: bold; color: @bright; }
+.field { font-size: 10px; color: @muted; min-width: 40px; }
+dropdown > button {
+  background: @bg;
+  border: 1px solid @line;
+  border-radius: 7px;
+  box-shadow: none;
+  padding: 3px 8px;
+  min-height: 0;
+}
+dropdown > button label { font-size: 11px; }
+dropdown popover contents { background: @bg; border: 1px solid @frame; border-radius: 8px; }
+dropdown popover listview { background: @bg; }
+dropdown popover row { padding: 4px 8px; border-radius: 6px; }
+dropdown popover row:selected { background: @raised; }
+button.ghost { min-height: 22px; }
+
+.confirm { border-color: @blue; }
+
+/* toast + identify */
+.toast-glyph { font-size: 16px; }
+.toast-title { color: @bright; }
+.ident { padding: 22px 34px; }
+.ident-glyph { font-size: 34px; color: @blue; }
+.ident-name { font-size: 22px; font-weight: bold; color: @bright; }
+
+/* colour utilities last, so they win over the element rules above */
+.c-blue { color: @blue; }
+.c-green { color: @green; }
+.c-amber { color: @amber; }
+.c-orange { color: @orange; }
+.c-red { color: @red; }
+
+/* using the battery */
+.user-row { padding: 3px 8px; }
+
+/* loading skeleton */
+@keyframes skel-pulse {
+  0% { opacity: 0.45; }
+  50% { opacity: 1; }
+  100% { opacity: 0.45; }
+}
+.skel {
+  background: @raised;
+  border-radius: 999px;
+  animation: skel-pulse 1.2s ease-in-out infinite;
+}
+.user-row { min-height: 20px; }
+.skel-note { padding: 3px 2px; }
+.users .user-row:hover { background: alpha(@raised, 0.6); }

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Let members of `plugdev` change the battery charge mode and limits, so hyprpower can
+# switch Dell charge_types (Adaptive / Standard / Fast / Custom) without sudo.
+# Run once:  sudo ./install-charge-rule        Undo:  sudo ./install-charge-rule --remove
+set -euo pipefail
+rule=/etc/udev/rules.d/90-hyprpower-charge.rules
+[[ $EUID -eq 0 ]] || { echo "run with sudo"; exit 1; }
+
+if [[ ${1:-} == --remove ]]; then
+  rm -f "$rule"
+  udevadm control --reload
+  echo "removed $rule (permissions go back to root-only at the next boot)"
+  exit 0
+fi
+
+cat >"$rule" <<'EOF'
+# hyprpower: plugdev may write the battery charge mode and thresholds
+SUBSYSTEM=="power_supply", KERNEL=="BAT*", ACTION=="add", RUN+="/bin/sh -c 'cd /sys%p && for f in charge_types charge_control_start_threshold charge_control_end_threshold; do [ -e $$f ] && chgrp plugdev $$f && chmod g+w $$f; done'"
+EOF
+udevadm control --reload
+udevadm trigger --action=add --subsystem-match=power_supply --sysname-match='BAT*'
+sleep 0.5
+ls -l /sys/class/power_supply/BAT*/charge_types /sys/class/power_supply/BAT*/charge_control_*_threshold
+echo "done: you (plugdev) can now change the charge mode from hyprpower"
