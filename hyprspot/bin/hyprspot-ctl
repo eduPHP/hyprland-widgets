@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Usado pelos atalhos do Hyprland: fala direto com o app via D-Bus (~60 ms).
+# Se o hyprspot não estiver rodando, inicia. "media" serve para painéis (Waybar etc.):
+# vai para o Soloist quando ele é o aparelho ativo; senão segue para o playerctl (swayosd).
+# As teclas de mídia do teclado ficam com o sistema.
+HYPRSPOT="$(dirname "$(readlink -f "$0")")/hyprspot"
+act() {
+  gdbus call --session --dest dev.hyprspot.App --object-path /dev/hyprspot/App \
+    --method org.gtk.Actions.Activate "$1" '[]' '{}' >/dev/null 2>&1
+}
+
+case "${1:-}" in
+  media)
+    SOLOIST="$HOME/.local/bin/soloist"
+    if "$SOLOIST" ctl status 2>/dev/null | grep -q "active device: yes"; then
+      act "$2" && exit 0
+      # hyprspot fechado: fala direto com o Soloist
+      case "$2" in
+        next) exec "$SOLOIST" ctl next ;;
+        prev) exec "$SOLOIST" ctl prev ;;
+        *) if "$SOLOIST" ctl now 2>/dev/null | grep -q "^  playing"; then exec "$SOLOIST" ctl pause; else exec "$SOLOIST" ctl play; fi ;;
+      esac
+    fi
+    case "$2" in prev) p=previous ;; *) p="$2" ;; esac
+    if command -v swayosd-client >/dev/null; then exec swayosd-client --playerctl "$p"; fi
+    exec playerctl "$p"
+    ;;
+  quit)
+    act quit
+    exit 0
+    ;;
+  open-close)
+    act quit && exit 0
+    exec "$HYPRSPOT"
+    ;;
+  toggle | expand-search | hide-toggle | collapse)
+    act "$1" && exit 0
+    if [ "$1" = expand-search ]; then exec "$HYPRSPOT" expand --search; fi
+    exec "$HYPRSPOT"
+    ;;
+  *)
+    echo "uso: hyprspot-ctl toggle|expand-search|hide-toggle|collapse|quit|open-close|media <play-pause|next|prev>" >&2
+    exit 2
+    ;;
+esac

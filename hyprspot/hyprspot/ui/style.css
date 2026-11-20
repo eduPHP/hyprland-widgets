@@ -1,0 +1,120 @@
+/* hyprspot — Tokyo Night. Valores em docs/specs §10 e no artboard "Tokens e medidas". */
+window.hs-window,
+window.hs-window > * {
+  background: transparent;
+}
+
+.hs-root {
+  font-family: Inter, "Noto Sans", sans-serif;
+  color: #c0caf5;
+  background-color: rgba(26, 27, 38, 0.94);
+  border: 1px solid rgba(192, 202, 245, 0.10);
+}
+.hs-compact { border-radius: 14px; padding: 7px 8px; }
+/* arrastando para mover: destaca o widget até soltar */
+window.hs-dragging .hs-root { border-color: #7aa2f7; }
+.hs-clip { border-radius: 14px; }
+.hs-expanded { border-radius: 16px; border-color: rgba(122, 162, 247, 0.45); background-color: rgba(26, 27, 38, 0.97); }
+
+.hs-title { font-size: 13px; font-weight: 600; color: #c0caf5; }
+.hs-expanded .hs-footer .hs-title { font-size: 14px; }
+.hs-artist { font-size: 11.5px; color: #9aa5ce; }
+.hs-mono { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: #9aa5ce; }
+.hs-error { color: #f7768e; }
+.hs-warn { color: #e0af68; }
+
+/* capas */
+.hs-cover { background-color: #24283b; border-radius: 8px; }
+.hs-cover.small { border-radius: 6px; }
+.hs-cover.big { border-radius: 9px; }
+
+/* botões */
+button.hs-hit { background-image: none; background: none; border: none; box-shadow: none; padding: 0; border-radius: 8px; min-height: 0; min-width: 0; }
+button.hs-hit:focus-visible { outline: 2px solid #7aa2f7; }
+button.hs-btn {
+  background: none; background-image: none; border: none; box-shadow: none; padding: 0;
+  min-width: 34px; min-height: 34px; border-radius: 8px; color: #a9b1d6;
+}
+button.hs-btn:hover { background-color: #292e42; color: #c0caf5; }
+button.hs-btn:active { background-color: #24283b; }
+button.hs-btn:disabled { color: #565f89; }
+button.hs-btn.on { color: #7aa2f7; }
+button.hs-btn.liked { color: #f7768e; }
+button.hs-btn.small { min-width: 26px; min-height: 26px; }
+button.hs-play {
+  background-image: none; background-color: #c0caf5; color: #1a1b26; border: none; box-shadow: none; padding: 0;
+  min-width: 36px; min-height: 36px; border-radius: 999px;
+}
+button.hs-play:hover { background-color: #ffffff; }
+button.hs-play:disabled { background-color: #414868; color: #1a1b26; }
+button.hs-play.big { min-width: 44px; min-height: 44px; }
+
+/* progresso */
+progressbar.hs-progress { margin: 0; padding: 0; min-height: 2px; }
+progressbar.hs-progress trough { min-height: 2px; background-color: rgba(192, 202, 245, 0.08); border-radius: 0; }
+progressbar.hs-progress progress { min-height: 2px; background-color: #7aa2f7; border-radius: 0; }
+progressbar.hs-progress.paused progress { background-color: #565f89; }
+progressbar.hs-progress.big trough { min-height: 4px; border-radius: 2px; background-color: #292e42; }
+progressbar.hs-progress.big progress { min-height: 4px; border-radius: 2px; }
+scale.hs-scale trough { min-height: 4px; border-radius: 2px; background-color: #292e42; }
+scale.hs-scale highlight { background-color: #7aa2f7; border-radius: 2px; }
+scale.hs-scale.volume highlight { background-color: #a9b1d6; }
+scale.hs-scale slider { min-width: 12px; min-height: 12px; margin: -4px; background-color: #c0caf5; border: none; box-shadow: none; }
+scale.hs-scale.volume slider { min-width: 0; min-height: 0; margin: 0; background: none; }
+
+.hs-dot { min-width: 7px; min-height: 7px; border-radius: 999px; background-color: #f7768e; }
+
+/* abas */
+.hs-tabs { background-color: #16161e; border-radius: 10px; padding: 3px; }
+button.hs-tab {
+  background: none; background-image: none; border: none; box-shadow: none; min-height: 30px; border-radius: 7px;
+  font-size: 12.5px; font-weight: 600; color: #9aa5ce;
+}
+button.hs-tab.selected { background-color: #292e42; color: #c0caf5; }
+
+/* listas */
+list.hs-list, list.hs-list > row { background: transparent; }
+list.hs-list > row { padding: 0; border-radius: 9px; margin: 0 0 1px 0; }
+list.hs-list > row:hover { background-color: #24283b; }
+list.hs-list > row:selected { background-color: #24283b; color: #c0caf5; outline: 1.5px solid #7aa2f7; outline-offset: -2px; }
+list.hs-list > row:focus-visible { outline: 1.5px solid #7aa2f7; outline-offset: -2px; }
+scrolledwindow undershoot, scrolledwindow overshoot { background: none; }
+.hs-row { min-height: 46px; padding: 0 10px; }
+.hs-row .hs-name { font-size: 13px; font-weight: 500; color: #c0caf5; }
+.hs-row.active .hs-name { color: #9ece6a; }
+.hs-row .hs-meta { font-size: 11px; color: #9aa5ce; }
+.hs-hint { font-size: 12px; color: #9aa5ce; padding: 18px 8px; }
+
+entry.hs-search, searchentry.hs-search {
+  background-color: #16161e; border: 1px solid #292e42; border-radius: 9px; min-height: 36px;
+  color: #c0caf5; font-size: 13px; box-shadow: none;
+}
+searchentry.hs-search:focus-within { border-color: #7aa2f7; }
+searchentry.hs-search text placeholder { color: #8089b3; }
+
+.hs-footer { border-top: 1px solid rgba(192, 202, 245, 0.08); background-color: rgba(22, 22, 30, 0.6); padding: 12px 14px; }
+.hs-eq { color: #9ece6a; }
+
+/* Yaru define trough/progress horizontais com 4 px; reforça 2 px no compacto */
+progressbar.hs-progress.horizontal > trough,
+progressbar.hs-progress.horizontal > trough > progress { min-height: 2px; margin: 0; padding: 0; border: none; }
+progressbar.hs-progress.big.horizontal > trough,
+progressbar.hs-progress.big.horizontal > trough > progress { min-height: 4px; }
+searchentry.hs-search:focus-within { outline: none; box-shadow: none; border-color: #7aa2f7; }
+
+/* tela da playlist */
+button.hs-back {
+  background: none; background-image: none; border: none; box-shadow: none; padding: 2px 6px; min-height: 0;
+  font-size: 12.5px; font-weight: 600; color: #9aa5ce; border-radius: 7px;
+}
+button.hs-back:hover { color: #c0caf5; background-color: #24283b; }
+.hs-phead { padding: 2px 4px 4px; }
+.hs-ptitle { font-size: 16px; font-weight: 700; color: #c0caf5; }
+button.hs-pill {
+  background-image: none; background-color: #292e42; color: #c0caf5; border: none; box-shadow: none;
+  border-radius: 999px; padding: 4px 12px; min-height: 0; font-size: 12px; font-weight: 600;
+}
+button.hs-pill:hover { background-color: #343b58; }
+button.hs-pill.main { background-color: #c0caf5; color: #1a1b26; }
+button.hs-pill.main:hover { background-color: #d5dcfa; }
+.hs-section { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #9aa5ce; margin: 6px 6px 0; }
