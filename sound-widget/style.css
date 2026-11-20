@@ -1,0 +1,167 @@
+/* Sound panel: only what is specific to this widget.
+ * Colours, the popover/toast frame, header, icon buttons, switch, card, rows,
+ * sections and the footer rule come from the shared hypr-ui stylesheet
+ * (~/.config/hypr-ui, loaded first by hypr_ui.load_css). */
+
+/* output / input tabs */
+button.dir {
+  background: alpha(white, 0.03);
+  border: 1px solid alpha(white, 0.06);
+  border-radius: 11px;
+  box-shadow: none;
+  padding: 8px;
+  min-height: 0;
+}
+button.dir:hover { background: alpha(white, 0.05); }
+.dir-icon {
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 8px;
+  background: alpha(white, 0.06);
+  font-size: 15px;
+}
+.dir-name { font-weight: bold; font-size: 12px; color: @bright; }
+.dir-val { color: @muted; font-size: 10px; }
+.dir-val.muted { color: @red; }
+.dir-dev { color: @muted; font-size: 10px; }
+button.dir.out.active { background: alpha(@blue, 0.12); border-color: alpha(@blue, 0.45); }
+button.dir.out.active .dir-icon { color: @blue; background: alpha(@blue, 0.16); }
+button.dir.in.active { background: alpha(@orange, 0.12); border-color: alpha(@orange, 0.45); }
+button.dir.in.active .dir-icon { color: @orange; background: alpha(@orange, 0.16); }
+
+/* hero card (base .card + a roomier pad) */
+.card { padding: 12px; }
+button.mute {
+  min-width: 46px;
+  min-height: 46px;
+  padding: 0;
+  border-radius: 13px;
+  box-shadow: none;
+  font-size: 20px;
+}
+.card.out button.mute { background: alpha(@blue, 0.14); border: 1px solid alpha(@blue, 0.35); color: @blue; }
+.card.in button.mute { background: alpha(@orange, 0.14); border: 1px solid alpha(@orange, 0.35); color: @orange; }
+.card.muted button.mute { background: alpha(@red, 0.12); border: 1px solid alpha(@red, 0.4); color: @red; }
+.card button.mute label { color: inherit; font-size: 20px; }
+.card.out button.mute label { color: @blue; }
+.card.in button.mute label { color: @orange; }
+.card.muted button.mute label { color: @red; }
+.hero-name { color: @fg; font-size: 12px; }
+.hero-val { font-size: 22px; font-weight: bold; color: @bright; }
+.card.muted .hero-val { color: @red; }
+
+/* sliders */
+scale { padding: 6px 0; margin: 0; }
+scale trough {
+  min-height: 6px;
+  border-radius: 999px;
+  background: alpha(white, 0.08);
+  border: none;
+}
+scale highlight { border-radius: 999px; background: @blue; border: none; min-height: 6px; }
+scale slider {
+  min-width: 16px;
+  min-height: 16px;
+  margin: -6px 0;
+  border-radius: 999px;
+  background: #f2f4f8;
+  border: none;
+  box-shadow: 0 1px 3px alpha(black, 0.4);
+}
+scale:focus-within slider { box-shadow: 0 0 0 4px alpha(@blue, 0.35); }
+.card.in scale highlight { background: @orange; }
+.card.muted scale highlight { background: #4a5068; }
+scale.mini trough, scale.mini highlight { min-height: 4px; }
+scale.mini highlight { background: alpha(@blue, 0.8); }
+scale.mini.muted highlight { background: #4a5068; }
+scale.mini slider { min-width: 12px; min-height: 12px; margin: -4px 0; background: @bright; }
+
+/* meters */
+.seg-label { color: @faint; font-size: 9px; min-width: 18px; }
+.seg.out { color: @blue; }
+.seg.in { color: @orange; }
+.bar { color: @blue; }
+.bar.in { color: @orange; }
+
+/* sections + rows */
+.empty { color: @faint; font-size: 10px; padding: 4px 10px; }
+
+.row.out.current { background: alpha(@blue, 0.10); border-color: alpha(@blue, 0.35); }
+.row.in.current { background: alpha(@orange, 0.10); border-color: alpha(@orange, 0.35); }
+.row.na { opacity: 0.5; }
+.name { font-weight: bold; color: @bright; }
+.sub { color: @muted; font-size: 10px; }
+.dev-icon, .proc-icon {
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 8px;
+  background: alpha(white, 0.05);
+  font-size: 15px;
+}
+.row.out.current .dev-icon { color: @blue; background: alpha(@blue, 0.16); }
+.row.in.current .dev-icon { color: @orange; background: alpha(@orange, 0.16); }
+.dev-vol { color: @muted; font-size: 10px; }
+.radio { color: @faint; }
+.row.out.current .radio { color: @blue; }
+.row.in.current .radio { color: @orange; }
+
+.app { padding: 4px 8px; }
+.mono {
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: bold;
+}
+.mono.c0 { color: #c7a6ff; background: alpha(#c7a6ff, 0.12); }
+.mono.c1 { color: #8ee3ae; background: alpha(#8ee3ae, 0.12); }
+.mono.c2 { color: #a9b6ff; background: alpha(#a9b6ff, 0.12); }
+.mono.c3 { color: #7dcfff; background: alpha(#7dcfff, 0.12); }
+.mono.c4 { color: #e0af68; background: alpha(#e0af68, 0.12); }
+.mono.c5 { color: #c3c8d6; background: alpha(white, 0.08); }
+
+.proc { padding: 2px 4px 2px 8px; }
+.proc.on .proc-icon { color: @orange; background: alpha(@orange, 0.14); }
+switch:checked { background: @orange; }
+switch:checked slider { background: white; }
+
+/* key strip */
+.footer { padding-top: 10px; }
+
+button.cap {
+  min-height: 0;
+  padding: 6px 0;
+  border-radius: 9px;
+  border: 1px solid alpha(white, 0.09);
+  background: alpha(white, 0.03);
+  box-shadow: inset 0 -2px 0 alpha(black, 0.35);
+  transition: all 120ms ease;
+}
+button.cap:hover { background: alpha(white, 0.06); }
+button.cap.pressed { border-color: alpha(@blue, 0.75); background: alpha(@blue, 0.22); box-shadow: inset 0 1px 0 alpha(black, 0.4); }
+button.cap.in.pressed { border-color: alpha(@orange, 0.75); background: alpha(@orange, 0.22); }
+.cap-key { font-weight: bold; font-size: 11px; color: @bright; }
+.cap-label { font-size: 9px; color: @muted; }
+.foot-hint { color: @faint; font-size: 9px; }
+
+/* on-screen display */
+.osd-icon {
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 11px;
+  font-size: 19px;
+}
+.osd.out .osd-icon { color: @blue; background: alpha(@blue, 0.14); }
+.osd.in .osd-icon { color: @orange; background: alpha(@orange, 0.14); }
+.osd.muted .osd-icon { color: @red; background: alpha(@red, 0.12); }
+.osd-title { color: @fg; font-size: 12px; }
+.osd.in .bar { color: @orange; }
+.osd-val { font-size: 16px; font-weight: bold; min-width: 60px; color: #f2f4f8; }
+.osd.muted .osd-val { color: @red; }
+
+/* hyprspot strip (output tab) */
+.proc.spot .proc-icon { color: @faint; }
+.proc.spot.playing .proc-icon { color: @green; background: alpha(@green, 0.14); }
+button.spot-btn { min-width: 26px; min-height: 26px; padding: 0; }
+button.spot-btn:disabled { color: alpha(@faint, 0.5); }
+button.spot-btn.on { color: @green; }

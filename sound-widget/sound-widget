@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Sound widget entry point (kept free of GTK imports so key binds stay fast).
+
+  sound-widget                    toggle the panel (starts the daemon on first run)
+  sound-widget open-out|open-in   open the panel on a tab
+  sound-widget up|down [N]        output volume ±N% (default 5), with OSD
+  sound-widget mute               toggle output mute
+  sound-widget mic-up|mic-down [N], mic-mute
+  sound-widget next-out|next-in   switch to the next default output / input
+  sound-widget --status out|in    JSON line for the waybar custom/sound and custom/mic modules
+  sound-widget --daemon           run the resident GTK process (Hyprland exec-once)
+  sound-widget close              close the panel if open (never starts the daemon)
+  sound-widget quit               stop the daemon
+"""
+
+import json
+import os
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(os.path.realpath(__file__)).parent
+sys.path.insert(0, str(HERE))
+RUN = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
+SOCK = RUN / "sound-widget.sock"
+OPEN_FLAG = RUN / "sound-widget.open"
+LAYER_SHELL = "/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0"
+ACTIONS = ("up", "down", "mute", "mic-up", "mic-down", "mic-mute", "next-out", "next-in")
+
+
+def send(cmd: str) -> bool:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.connect(str(SOCK))
+        s.sendall(cmd.encode())
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def start_daemon():
+    subprocess.Popen([sys.executable, os.path.realpath(__file__), "--daemon"], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def direct(cmd: list[str]):
+    """Apply a key action without the daemon (no OSD) while it starts up."""
+    import pw
+
+    n = int(cmd[1]) if len(cmd) > 1 and cmd[1].isdigit() else 5
+    a = cmd[0]
+    target = pw.SOURCE if a.startswith("mic") else pw.SINK
+    if a in ("up", "down", "mic-up", "mic-down"):
+        pw.step(target, n if a.endswith("up") else -n)
+    elif a in ("mute", "mic-mute"):
+        pw.set_mute(target)
+    subprocess.run(["pkill", "-RTMIN+10", "-x", "waybar"], capture_output=True)
+
+
+def status(which: str):
+    import pw
+
+    esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;")  # noqa: E731
+    out = {"text": "", "class": [], "tooltip": ""}
+    try:
+        snap = pw.snapshot()
+    except Exception as e:
+        print(json.dumps({"text": "󰖁", "class": ["error"], "tooltip": f"pipewire: {e}"}), flush=True)
+        return
+    if which == "in":
+        src = snap.source()
+        if not src:
+            out.update(text="󰍭", tooltip="no microphone")
+            out["class"].append("none")
+        elif src.muted:
+            out.update(text="󰍭 off", tooltip=f"<b>{esc(src.label)}</b> · muted\nclick: input panel · middle: unmute")
+            out["class"].append("muted")
+        else:
+            apps = sorted({n.label for n in snap.rec})
+            out["text"] = "󰍬 live" if apps else "󰍬"
+            out["class"].append("live" if apps else "idle")
+            out["tooltip"] = f"<b>{esc(src.label)}</b> · {src.vol}%" + (
+                f"\n<span color='#ff9e64'>recording: {esc(', '.join(apps))}</span>" if apps else "") + (
+                "\n<span color='#737aa2'>voice filter on</span>" if snap.voice else "") + "\nclick: input panel · middle: mute"
+    else:
+        sink = snap.sink()
+        if not sink:
+            out.update(text="󰖁", tooltip="no output device")
+            out["class"].append("none")
+        elif sink.muted:
+            out.update(text="󰝟", tooltip=f"<b>{esc(sink.label)}</b> · muted\nclick: panel · right: unmute")
+            out["class"].append("muted")
+        else:
+            icon = "󰕿" if sink.vol < 40 else "󰕾"
+            out["text"] = icon
+            out["class"].append("on")
+            out["tooltip"] = f"<b>{esc(sink.label)}</b> · {sink.vol}%\nclick: panel · right: mute · scroll: volume"
+    if OPEN_FLAG.exists():
+        out["class"].append("open")
+    print(json.dumps(out, ensure_ascii=False), flush=True)
+
+
+def daemon():
+    # gtk4-layer-shell must be loaded before libwayland-client
+    if LAYER_SHELL not in os.environ.get("LD_PRELOAD", ""):
+        os.environ["LD_PRELOAD"] = ":".join(filter(None, [LAYER_SHELL, os.environ.get("LD_PRELOAD")]))
+        os.execv(sys.executable, [sys.executable, os.path.realpath(__file__), *sys.argv[1:]])
+    if send("ping"):
+        sys.exit("sound-widget daemon already running")
+    import widget
+
+    widget.main(SOCK)
+
+
+def main():
+    args = sys.argv[1:]
+    if args[:1] == ["--status"]:
+        return status(args[1] if len(args) > 1 else "out")
+    if args[:1] == ["--daemon"]:
+        return daemon()
+    cmd = args or ["toggle"]
+    if cmd[0] not in (*ACTIONS, "toggle", "open-out", "open-in", "close", "quit"):
+        sys.exit(__doc__)
+    if send(" ".join(cmd)) or cmd[0] in ("close", "quit"):
+        return
+    if cmd[0] in ACTIONS:
+        direct(cmd)
+        start_daemon()
+        return
+    start_daemon()
+    for _ in range(50):
+        time.sleep(0.1)
+        if send(" ".join(cmd)):
+            return
+    sys.exit("sound-widget daemon did not start")
+
+
+if __name__ == "__main__":
+    main()
