@@ -1,0 +1,58 @@
+# hyprcal: calendar popover for Hyprland, in the hypr-ui look.
+# Read again every time the popover opens. `hyprcal refresh` syncs now.
+
+[general]
+week_start   = "monday"    # monday | sunday
+week_numbers = true
+timezone     = "local"     # "local" or an IANA name such as "America/Sao_Paulo"
+refresh      = 300         # seconds between syncs
+default_view = "popout"    # popout | full
+position     = "clock"     # clock: under the waybar clock (learned from your click) | center | right
+
+[format]
+# strftime codes: %H %M %S %I %p %P %k %l · %A %a %B %b %d %-d %e %m %Y %y %V %j %u · %%
+locale      = ""            # e.g. "pt_BR.UTF-8"; empty = the system LC_TIME
+clock       = "%H:%M"
+seconds     = true
+date        = "%A, %-d %B"
+agenda_time = "%H:%M"
+month_title = "%B %Y"
+day_title   = "%a %-d %b"   # agenda header for a day that is not today
+waybar      = "%A %H:%M"    # text of the waybar module (`hyprcal --status`)
+
+[reminder]
+# A card under the clock for the next event, always on top until you dismiss it or the event ends.
+# It appears `lead` minutes before the start, or at the event's own reminder time when it has one.
+enabled = true
+lead    = 10      # minutes
+snooze  = 5       # minutes
+position = "center"  # center | clock | right
+
+[google]
+enabled     = true
+# OAuth "Desktop app" client downloaded from Google Cloud Console; then run `hyprcal auth google`.
+client_file = "~/.config/hyprcal/google-client.json"
+
+# One block per calendar.
+#   id  = Google Calendar API id (list them with `hyprcal google ls`); needs `hyprcal auth google`
+#   ics = the calendar's "secret address in iCal format" (or a local .ics file); no sign-in needed
+# color is a hypr-ui colour: blue | cyan | purple | green | amber | orange | red
+[[google.calendars]]
+name  = "personal"
+id    = "primary"
+color = "blue"
+
+# [[google.calendars]]
+# name  = "family"
+# ics   = "https://calendar.google.com/calendar/ical/xxxx/private-xxxx/basic.ics"
+# color = "orange"
+
+[calendly]
+enabled         = false
+token_cmd       = "pass show calendly/pat"   # prints a Personal Access Token; or set token = "..."
+booking_url     = ""        # empty = your scheduling page, from the API
+event_types     = []        # slugs to show open slots for; empty = every active event type
+color           = "purple"
+show_bookings   = true      # booked meetings in the agenda
+show_open_slots = true
+slots_per_day   = 6

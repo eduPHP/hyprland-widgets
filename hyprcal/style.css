@@ -1,0 +1,106 @@
+/* hyprcal: only what is specific to the calendar.
+ * Colours, the popover frame, header, buttons, card, tabs, rows, badges and the
+ * key-hint footer come from the shared hypr-ui stylesheet (~/.config/hypr-ui),
+ * loaded first by hypr_ui.load_css. */
+
+/* calendar colours (config `color = "blue"` etc.) */
+.c-blue { color: @blue; }
+.c-cyan { color: @cyan; }
+.c-purple { color: @purple; }
+.c-green { color: @green; }
+.c-amber { color: @amber; }
+.c-orange { color: @orange; }
+.c-red { color: @red; }
+
+.pip { min-width: 4px; min-height: 4px; border-radius: 999px; background: @muted; }
+.pip.c-blue, .bar.c-blue { background: @blue; }
+.pip.c-cyan, .bar.c-cyan { background: @cyan; }
+.pip.c-purple, .bar.c-purple { background: @purple; }
+.pip.c-green, .bar.c-green { background: @green; }
+.pip.c-amber, .bar.c-amber { background: @amber; }
+.pip.c-orange, .bar.c-orange { background: @orange; }
+.pip.c-red, .bar.c-red { background: @red; }
+.tabs .pip, .calendly .pip { min-width: 6px; min-height: 6px; }
+
+/* clock card */
+.status { font-size: 10px; color: @muted; }
+.status.ok { color: @green; }
+.status.busy { color: @blue; }
+.status.warn { color: @amber; }
+.status.error { color: @red; }
+.status.idle { color: @faint; }
+.clock { font-size: 22px; font-weight: bold; color: @bright; }
+.full .clock { font-size: 22px; }
+.secs { font-size: 13px; color: @muted; margin-left: 2px; }
+.date { color: @fg; font-size: 12px; }
+.meta { color: @muted; font-size: 10px; }
+
+progressbar.day-progress trough {
+  min-height: 3px;
+  background: @track;
+  border: none;
+  border-radius: 999px;
+}
+progressbar.day-progress progress {
+  min-height: 3px;
+  min-width: 3px;
+  background: @blue;
+  border: none;
+  border-radius: 999px;
+}
+
+/* month grid */
+.wd { color: @faint; font-size: 10px; padding: 2px 0; }
+.wk { color: @faint; font-size: 9px; }
+button.day {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  box-shadow: none;
+  min-height: 30px;
+  min-width: 0;
+  padding: 0;
+}
+button.day .num { font-size: 12px; }
+button.day:hover { background: alpha(@raised, 0.6); }
+button.day.weekend .num { color: @muted; }
+button.day.out .num { color: @faint; }
+button.day.out .pip { opacity: 0.5; }
+button.day.selected { background: @raised; border-color: @frame; }
+button.day.selected .num { color: @bright; font-weight: bold; }
+button.day.today { background: @blue; border-color: @blue; }
+button.day.today .num { color: @ink; font-weight: bold; }
+button.day.today .pip { background: @ink; }
+
+/* agenda rows */
+.row .t1 { font-size: 11px; color: @fg; }
+.row .t2 { font-size: 10px; color: @faint; }
+.row .bar { min-width: 3px; border-radius: 2px; }
+.row .name { font-weight: bold; }
+.row .meta { color: @muted; font-size: 10px; }
+.row.past { opacity: 0.45; }
+.row.link:hover .name { color: @blue; }
+.badge.now { background: alpha(@green, 0.18); color: @green; }
+.nowline { min-height: 1px; background: @red; }
+.now-time { color: @red; font-size: 9px; }
+.empty { color: @faint; font-size: 11px; padding: 14px 0; }
+
+/* tabs */
+.tab-name { color: @muted; font-size: 11px; }
+button.tab.active .tab-name { color: @fg; font-weight: bold; }
+
+/* calendly */
+.calendly .name { font-weight: bold; }
+.calendly button.ghost { padding: 3px 0; }
+
+/* reminder card under the clock */
+.reminder .app-icon.c-blue { color: @blue; }
+.reminder .app-icon.c-cyan { color: @cyan; }
+.reminder .app-icon.c-purple { color: @purple; }
+.reminder .app-icon.c-green { color: @green; }
+.reminder .app-icon.c-amber { color: @amber; }
+.reminder .app-icon.c-orange { color: @orange; }
+.reminder .app-icon.c-red { color: @red; }
+.reminder .title { color: @bright; }
+.reminder .badge.now { background: alpha(@amber, 0.18); color: @amber; }
+.reminder:hover { border-color: @blue; }

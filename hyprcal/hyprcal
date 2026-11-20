@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""hyprcal: calendar popover for Hyprland (hypr-ui look). Kept free of GTK imports so binds stay fast.
+
+  hyprcal                    toggle the compact popover (starts the daemon on first run)
+  hyprcal full               toggle the full view (or grow the open compact one)
+  hyprcal open [full]        open if closed
+  hyprcal close              close if open (never starts the daemon)
+  hyprcal refresh            re-read config.toml and sync now
+  hyprcal snooze|dismiss     act on the reminder card (snooze for [reminder] snooze minutes)
+  hyprcal open-event         open the reminder's event in Google Calendar
+  hyprcal quit               stop the daemon
+  hyprcal --daemon           run the resident GTK process (Hyprland exec-once)
+  hyprcal --status           stream JSON lines for a waybar custom module (no interval)
+  hyprcal auth google        sign in to Google Calendar (read-only)
+  hyprcal google ls          list your Google calendars and their ids
+  hyprcal config             print the config path (creates it on first run)
+"""
+
+import json
+import os
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(os.path.realpath(__file__)).parent
+sys.path.insert(0, str(HERE))
+import config  # noqa: E402  (no GTK in here)
+
+SOCK = config.RUN / "hyprcal.sock"
+OPEN_FLAG = config.RUN / "hyprcal.open"
+LAYER_SHELL = "/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0"
+
+
+def send(cmd: str) -> bool:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.connect(str(SOCK))
+        s.sendall(cmd.encode())
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def start_daemon():
+    subprocess.Popen([sys.executable, os.path.realpath(__file__), "--daemon"], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def daemon():
+    # gtk4-layer-shell must be loaded before libwayland-client
+    if LAYER_SHELL not in os.environ.get("LD_PRELOAD", ""):
+        os.environ["LD_PRELOAD"] = ":".join(filter(None, [LAYER_SHELL, os.environ.get("LD_PRELOAD")]))
+        os.execv(sys.executable, [sys.executable, os.path.realpath(__file__), *sys.argv[1:]])
+    if send("ping"):
+        sys.exit("hyprcal daemon already running")
+    import widget
+
+    widget.main(SOCK)
+
+
+def status():
+    """One JSON line whenever the bar text, tooltip or classes change (checked every second)."""
+    from datetime import datetime, timedelta
+    from html import escape
+
+    import store
+
+    try:  # tooltip colours come from hypr-ui, like everything else
+        tok = json.loads((Path.home() / ".config/hypr-ui/tokens.json").read_text())["color"]
+    except (OSError, ValueError, KeyError):
+        tok = {}
+    muted, faint = tok.get("muted", "#737aa2"), tok.get("faint", "#565f89")
+    cfg_m = cache_m = -1.0
+    cfg = zone = None
+    events: list = []
+    last = ""
+    while True:
+        m = config.mtime()
+        if m != cfg_m:
+            cfg_m = m
+            cfg, _ = config.load()
+            config.apply_locale(cfg)
+            zone = config.tz(cfg)
+            cache_m = -1.0
+        try:
+            cm = config.CACHE.stat().st_mtime
+        except OSError:
+            cm = 0.0
+        if cm != cache_m:
+            cache_m = cm
+            events, _slots = store.load(store.read_raw(), zone)
+        now = datetime.now(zone)
+        text = config.fmt(now, cfg["format"]["waybar"])
+        cls = []
+        live = [e for e in events if e.live(now)]
+        lead = int(cfg["reminder"].get("lead", 10))
+        soon = [e for e in events if not e.all_day and now < e.start <= now + timedelta(minutes=e.lead(lead))]
+        if live:
+            cls.append("live")
+        if soon:
+            cls.append("soon")
+        if OPEN_FLAG.exists():
+            cls.append("open")
+        lines = [f"<b>{escape(config.fmt(now, cfg['format']['date']))}</b>"]
+        today = [e for e in events if e.on(now.date(), zone) and e.end > now][:6]
+        for e in today:
+            t = "all day" if e.all_day else config.fmt(e.start, cfg["format"]["agenda_time"])
+            lines.append(f"<span color='{muted}'>{escape(t)}</span>  {escape(e.title)}")
+        if not today:
+            nxt = next((e for e in events if e.start > now), None)
+            lines.append(f"<span color='{faint}'>nothing else today</span>" + (
+                f"\n<span color='{muted}'>next</span>  {escape(config.fmt(nxt.start, cfg['format']['day_title']))} "
+                f"· {escape(nxt.title)}" if nxt else ""))
+        lines.append(f"<span color='{faint}'>click: calendar · right: full view</span>")
+        out = json.dumps({"text": text, "tooltip": "\n".join(lines), "class": cls}, ensure_ascii=False)
+        if out != last:
+            print(out, flush=True)
+            last = out
+        time.sleep(1.0 - (time.time() % 1.0) + 0.01)
+
+
+def main():
+    args = sys.argv[1:]
+    if args[:1] == ["--daemon"]:
+        return daemon()
+    if args[:1] == ["--status"]:
+        try:
+            return status()
+        except (BrokenPipeError, KeyboardInterrupt):
+            return
+    if args[:1] == ["config"]:
+        config.ensure()
+        return print(config.CONFIG)
+    if args[:2] == ["auth", "google"]:
+        import gcal
+
+        config.ensure()
+        return gcal.auth(config.load()[0])
+    if args[:2] == ["google", "ls"]:
+        import gcal
+
+        try:
+            cals = gcal.calendars(config.load()[0])
+        except gcal.AuthNeeded as e:
+            sys.exit(str(e))
+        for c in cals:
+            print(f"{c['id']:<60}  {c.get('summary', '')}{'  (primary)' if c.get('primary') else ''}")
+        return
+    if args in (["-h"], ["--help"], ["help"]):
+        return print(__doc__)
+
+    cmd = args or ["toggle"]
+    if cmd[0] == "full":
+        cmd = ["toggle", "full"]
+    if cmd[0] not in ("toggle", "open", "close", "refresh", "quit", "snooze", "dismiss", "open-event"):
+        sys.exit(__doc__)
+    line = " ".join(cmd)
+    if send(line) or cmd[0] in ("close", "quit", "snooze", "dismiss", "open-event"):
+        return
+    start_daemon()
+    for _ in range(60):
+        time.sleep(0.1)
+        if send(line):
+            return
+    sys.exit("hyprcal daemon did not start")
+
+
+if __name__ == "__main__":
+    main()
