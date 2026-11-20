@@ -22,3 +22,7 @@ __pycache__/
 .pytest_cache/
 *.log
 .superpowers/
+
+# pre-git manual snapshots (history is in git now)
+.bak*/
+*.bak.*
