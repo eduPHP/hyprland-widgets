@@ -3,7 +3,7 @@ import QtQuick
 import Quickshell
 
 // hyprbt's names for the shared hypr-ui tokens (Tokens.qml is a symlink to
-// ~/Work/hypr-ui/qml/Tokens.qml, generated from tokens.json). Retheme there,
+// ~/code/hyprland-widgets/hypr-ui/qml/Tokens.qml, generated from tokens.json). Retheme there,
 // not here, so every widget changes together.
 Singleton {
     readonly property color accent: Tokens.blue     // primary actions, scanning

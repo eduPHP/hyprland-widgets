@@ -1,6 +1,6 @@
 # hyprpower
 
-Power + display popover for Hyprland, in the hypr-ui look (`~/Work/hypr-ui`).
+Power + display popover for Hyprland, in the hypr-ui look (`~/code/hyprland-widgets/hypr-ui`).
 GTK4 + gtk4-layer-shell, one resident Python daemon driven over a unix socket.
 
 ## What it does
@@ -51,7 +51,7 @@ and `SUPER CTRL P`. Keys: `tab` switch tab · `1 2 3` profile · `k` keep awake 
 The charge files in `/sys/class/power_supply/BAT0` are root-only. Once:
 
 ```
-sudo ~/code/hyprpower/install-charge-rule
+sudo ~/code/hyprland-widgets/hyprpower/install-charge-rule
 ```
 
 adds a udev rule that makes them group-writable for `plugdev`. `--remove` undoes it.

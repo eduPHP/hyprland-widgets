@@ -2,7 +2,7 @@
 name: hypr-ui
 description: >
   The hypr-ui design system for this Hyprland/Omarchy desktop (Tokyo Night,
-  JetBrainsMono Nerd Font, ~/Work/hypr-ui). Use when building, restyling or
+  JetBrainsMono Nerd Font, ~/code/hyprland-widgets/hypr-ui). Use when building, restyling or
   fixing any desktop widget, popover, OSD/toast or waybar pop-up (GTK4 layer-shell
   or Quickshell), when the user says "hypr-ui", "our design system", "make it look
   like the other widgets", or names wifi-widget, sound-widget or hyprbt.
@@ -11,8 +11,8 @@ description: >
 
 # hypr-ui
 
-Every desktop widget gets its look from **one** place: `~/Work/hypr-ui`
-(also at `~/.config/hypr-ui`). Read `~/Work/hypr-ui/README.md` for the details;
+Every desktop widget gets its look from **one** place: `~/code/hyprland-widgets/hypr-ui`
+(also at `~/.config/hypr-ui`). Read `~/code/hyprland-widgets/hypr-ui/README.md` for the details;
 this page is the checklist.
 
 ## Where things are
@@ -26,8 +26,8 @@ this page is the checklist.
 | `qml/Tokens.qml` | Quickshell singleton (generated) |
 | `bin/hypr-ui-solo` | closes the other popovers when one opens |
 
-Widgets using it: `~/code/wifi-widget`, `~/code/sound-widget`, `~/code/hyprcal`, `~/code/hyprpower` (GTK4),
-`~/Work/hyprbt` (Quickshell). The README has the full widget map; add new
+Widgets using it: `~/code/hyprland-widgets/wifi-widget`, `~/code/hyprland-widgets/sound-widget`, `~/code/hyprland-widgets/hyprcal`, `~/code/hyprland-widgets/hyprpower` (GTK4),
+`~/code/hyprland-widgets/hyprbt` (Quickshell). The README has the full widget map; add new
 widgets to it.
 
 ## Rules
@@ -71,17 +71,17 @@ Base classes: `.app-icon` `.title` `.subtitle`, `button.primary` `.ghost` `.icon
 
 ## New Quickshell widget
 
-`ln -s ~/Work/hypr-ui/qml/Tokens.qml Tokens.qml` in the config folder, then copy
-from `~/Work/hyprbt`: the PanelWindow in `shell.qml` (margins, `mask`, hidden
+`ln -s ~/code/hyprland-widgets/hypr-ui/qml/Tokens.qml Tokens.qml` in the config folder, then copy
+from `~/code/hyprland-widgets/hyprbt`: the PanelWindow in `shell.qml` (margins, `mask`, hidden
 `shadowShape` + MultiEffect, `frame` Rectangle, `setOpen()` with the flag file and
 `hypr-ui-solo`), plus `Btn.qml`, `Txt.qml` and `SectionHeader.qml` as needed.
 
 ## After a change
 
 ```bash
-cd ~/Work/hypr-ui && ./build.py
+cd ~/code/hyprland-widgets/hypr-ui && ./build.py
 sound-widget quit; setsid -f sound-widget --daemon
-for p in $(pgrep -f "^/usr/bin/python3 /home/edu/code/wifi-widget/wifi-widget"); do kill $p; done
+for p in $(pgrep -f "^/usr/bin/python3 $HOME/code/hyprland-widgets/wifi-widget/wifi-widget"); do kill $p; done
 ```
 
 hyprbt reloads by itself. Don't use `pkill -f` with a pattern that also matches

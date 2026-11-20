@@ -30,4 +30,4 @@ ln -sfn "$PWD" ~/.config/quickshell/hyprbt
 IPC: `qs -c hyprbt ipc call bt toggle|open|close|power|status`
 
 Edits are hot-reloaded by Quickshell; restart with `qs -c hyprbt kill; qs -c hyprbt -d`.
-Look and colours come from the shared design system in `~/Work/hypr-ui` (`Tokens.qml` is a symlink to its generated singleton; `Theme.qml` maps hyprbt's names onto it).
+Look and colours come from the shared design system in `~/code/hyprland-widgets/hypr-ui` (`Tokens.qml` is a symlink to its generated singleton; `Theme.qml` maps hyprbt's names onto it).

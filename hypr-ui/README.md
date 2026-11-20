@@ -4,18 +4,18 @@ One look for every desktop widget on this Hyprland/Omarchy setup: a single
 `tokens.json`, rendered for GTK4 and for Quickshell, plus the surface rules that
 keep frames and shadows identical everywhere.
 
-![the three migrated widgets](docs-widgets.png)
+![the widgets](../docs/hero.png)
 
 ## Widget map
 
 | Widget | What it is | Toolkit | Code | Opened by | Surfaces | hypr-ui |
 |---|---|---|---|---|---|---|
-| **wifi-widget** | Wi-Fi / VPN / DNS popover | GTK4 + gtk4-layer-shell (Python) | `~/code/wifi-widget` | waybar `custom/wifi` click | popover (`wifi-widget`) | yes |
-| **sound-widget** | outputs, inputs, apps, hyprspot strip | GTK4 + gtk4-layer-shell (Python daemon, `exec-once sound-widget --daemon`) | `~/code/sound-widget` | waybar `custom/sound`, `custom/mic` | popover (`sound-widget`), volume toast (`sound-widget-osd`) | yes |
-| **hyprbt** | Bluetooth power, scan, pair, connect | Quickshell (QML, `exec-once qs -c hyprbt -d`) | `~/Work/hyprbt` | waybar `bluetooth` click, `SUPER CTRL B` | popover (`hyprbt`) | yes |
-| **hyprcal** | calendar: clock, month, agenda, Google Calendar + Calendly | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprcal --daemon`) | `~/code/hyprcal` | waybar `custom/hyprcal` click (compact), right-click or `SUPER ALT C` (full) | popover (`hyprcal`) | yes |
-| **hyprpower** | battery details, power profile, Dell charge mode, brightness, keyboard light, monitor layout (extend/mirror/placement/scale) | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprpower --daemon`) | `~/code/hyprpower` | waybar `battery` click, `SUPER CTRL P` | popover (`hyprpower`), toast (`hyprpower-toast`), identify (`hyprpower-identify`) | yes |
-| **hyprspot** | Spotify mini player | GTK4 (Python) | `~/Work/hyprspot` | always on, bottom-right | pill + expanded card (`hyprspot`, Hyprland blur rule) | no, separate project with its own look |
+| **wifi-widget** | Wi-Fi / VPN / DNS popover | GTK4 + gtk4-layer-shell (Python) | `~/code/hyprland-widgets/wifi-widget` | waybar `custom/wifi` click | popover (`wifi-widget`) | yes |
+| **sound-widget** | outputs, inputs, apps, hyprspot strip | GTK4 + gtk4-layer-shell (Python daemon, `exec-once sound-widget --daemon`) | `~/code/hyprland-widgets/sound-widget` | waybar `custom/sound`, `custom/mic` | popover (`sound-widget`), volume toast (`sound-widget-osd`) | yes |
+| **hyprbt** | Bluetooth power, scan, pair, connect | Quickshell (QML, `exec-once qs -c hyprbt -d`) | `~/code/hyprland-widgets/hyprbt` | waybar `bluetooth` click, `SUPER CTRL B` | popover (`hyprbt`) | yes |
+| **hyprcal** | calendar: clock, month, agenda, Google Calendar + Calendly | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprcal --daemon`) | `~/code/hyprland-widgets/hyprcal` | waybar `custom/hyprcal` click (compact), right-click or `SUPER ALT C` (full) | popover (`hyprcal`) | yes |
+| **hyprpower** | battery details, power profile, Dell charge mode, brightness, keyboard light, monitor layout (extend/mirror/placement/scale) | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprpower --daemon`) | `~/code/hyprland-widgets/hyprpower` | waybar `battery` click, `SUPER CTRL P` | popover (`hyprpower`), toast (`hyprpower-toast`), identify (`hyprpower-identify`) | yes |
+| **hyprspot** | Spotify mini player | GTK4 (Python) | `~/code/hyprland-widgets/hyprspot` | always on, bottom-right | pill + expanded card (`hyprspot`, Hyprland blur rule) | no, separate project with its own look |
 
 ## Layout
 
@@ -111,7 +111,7 @@ Use `@blue`, `@fg`, `@muted`… in your own CSS, never hex values.
 ### Quickshell (QML)
 
 ```bash
-cd ~/.config/quickshell/<widget> && ln -s ~/Work/hypr-ui/qml/Tokens.qml Tokens.qml
+cd ~/.config/quickshell/<widget> && ln -s ~/code/hyprland-widgets/hypr-ui/qml/Tokens.qml Tokens.qml
 ```
 
 Then use `Tokens.blue`, `Tokens.fontFamily`, `Tokens.sizeBody`, `Tokens.radiusSurface`, … Copy the
@@ -134,7 +134,7 @@ and a QML file) so the new format is regenerated with the others.
 ## Changing the look
 
 ```bash
-cd ~/Work/hypr-ui && ./build.py
+cd ~/code/hyprland-widgets/hypr-ui && ./build.py
 sound-widget quit; setsid -f sound-widget --daemon
 pkill -f code/wifi-widget/wifi-widget     # next waybar click starts it again
 ```

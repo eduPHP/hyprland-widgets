@@ -1,6 +1,6 @@
 # hyprcal
 
-Calendar popover for Hyprland in the hypr-ui look (`~/Work/hypr-ui`): a clock, a month grid,
+Calendar popover for Hyprland in the hypr-ui look (`~/code/hyprland-widgets/hypr-ui`): a clock, a month grid,
 an agenda from Google Calendar, and Calendly bookings and open slots.
 
 - **compact**: click the clock in waybar (`hyprcal`)
