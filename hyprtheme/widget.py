@@ -422,8 +422,10 @@ class Picker(Gtk.ApplicationWindow):
 
     def _build_card(self) -> Gtk.Box:
         self.sub = label("", "subtitle", ellipsize=40)
-        title = vbox(2, label("Theme", "title"), self.sub, valign=Gtk.Align.CENTER)
-        title.set_size_request(210, -1)
+        self.name = label("", "title", ellipsize=16)
+        self.state = label("", "badge")
+        title = vbox(2, hbox(8, self.name, self.state), self.sub, valign=Gtk.Align.CENTER)
+        title.set_size_request(320, -1)
         icon = label(G["palette"], "app-icon", xalign=0.5)
         self.entry = Gtk.Entry(placeholder_text="type to filter, fuzzy", hexpand=True, valign=Gtk.Align.CENTER)
         self.entry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, "system-search-symbolic")
@@ -523,7 +525,15 @@ class Picker(Gtk.ApplicationWindow):
         self.colors = {**hypr_ui.TOKENS["color"], **t.colors}
         self.app.paint(self.colors)
         n = len(t.backgrounds)
-        self.sub.set_text(f"{t.title} · {t.mode} · {n} wallpaper{'s' * (n != 1)}")
+        self.sub.set_text(f"{t.mode} \u00b7 {n} wallpaper{'s' * (n != 1)}")
+        # say plainly that this is a preview: only Enter changes the desktop
+        if t.id == self.current:
+            self.state.set_text("in use")
+            self.state.remove_css_class("preview")
+        else:
+            self.state.set_text("preview only \u00b7 enter applies")
+            self.state.add_css_class("preview")
+        self.name.set_text(t.title)
         self.term.set_markup(self._term_markup(t))
         self._fill_walls(t, rebuild=prev is not t)
         self._show_backdrop()

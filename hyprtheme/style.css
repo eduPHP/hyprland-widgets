@@ -17,6 +17,8 @@
 .picker-header { padding: 14px 16px 12px; border-bottom: 1px solid @line; }
 .picker-header .app-icon { min-width: 30px; min-height: 30px; font-size: 17px; }
 .picker-header .title { color: @bright; }
+.picker-header .badge { padding: 1px 6px; }
+.picker-header .badge.preview { background: @blue; color: @ink; font-weight: bold; }
 .picker-header entry { background: @surface; min-height: 18px; font-size: 12px; }
 .picker-header entry image { color: @muted; }
 
