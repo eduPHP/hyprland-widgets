@@ -19,6 +19,7 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 | 🎧 | [`hyprbt`](hyprbt) | bluetooth power, scan, pair (with its own BlueZ agent), connect, battery levels | [Quickshell](https://quickshell.org) (QML) |
 | 🎵 | [`hyprspot`](hyprspot) | Spotify mini-player with playlists and search, driven by Spotify's headless Connect client | GTK4 + gtk4-layer-shell, Spotify Soloist |
 | 🎨 | [`hypr-ui`](hypr-ui) | the shared design system: `tokens.json` → GTK CSS + Python helpers + a QML singleton | Python build script |
+| 🖼️ | [`hyprtheme`](hyprtheme) | theme picker: previews a theme and its wallpapers inside itself, fuzzy search, dark/light/favorite filters, undo after applying | GTK4 + gtk4-layer-shell |
 | 🖌️ | [`omarchy-theme`](omarchy-theme) | Omarchy's themes without Omarchy: one command restyles the wallpaper, borders, waybar, mako, fuzzel, terminal, btop, Neovim and every widget here, live | Python |
 
 ## Gallery
@@ -45,7 +46,7 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 ## How they fit together
 
 - **One look.** Every popover takes its colours, radii, spacing and shadow from [`hypr-ui`](hypr-ui).
-- **Follows your theme.** `omarchy-theme set gruvbox` (or Super+Ctrl+Shift+Space) switches all of them,
+- **Follows your theme.** `omarchy-theme set gruvbox` (or Super+Ctrl+Shift+Space for the hyprtheme picker) switches all of them,
   hyprspot included, to any of Omarchy's 23 themes, light ones too, without a restart.
 - **One at a time.** Opening any popover closes the others (`hypr-ui/bin/hypr-ui-solo`).
 - **Resident daemons.** The GTK widgets stay running and toggle instantly; waybar modules call
@@ -81,6 +82,7 @@ waybar module and keybinding, and the hyprcal, hyprpower and hyprbt READMEs have
 exec-once = sound-widget --daemon
 exec-once = hyprcal --daemon
 exec-once = hyprpower --daemon
+exec-once = hyprtheme --daemon
 exec-once = qs -c hyprbt -d
 ```
 

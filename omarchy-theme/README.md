@@ -10,7 +10,9 @@ omarchy-theme list              # installed themes, * marks the current one
 omarchy-theme set gruvbox       # switch
 omarchy-theme next              # or step through them (prev too)
 omarchy-theme bg-next           # next wallpaper of the current theme
-omarchy-theme-menu              # pick one in fuzzel, with previews (Super+Ctrl+Shift+Space)
+omarchy-theme bg ~/pics/x.jpg   # any wallpaper for the current theme
+omarchy-theme undo              # back to the theme and wallpaper before the last change
+omarchy-theme-menu              # the hyprtheme picker (Super+Ctrl+Shift+Space), fuzzel without it
 ```
 
 ## Install
@@ -37,7 +39,9 @@ and `~/.local/share/omarchy/themes/` (Omarchy's).
    `~/.config/omarchy/current/theme/`. A file the theme ships itself is used instead of the template.
    Templates take `{{ key }}`, `{{ key_strip }}` (no `#`), `{{ key_rgb }}` (`r,g,b`) and `{{ mix a b 30% }}`.
 3. Writes the resolved palette to `colors.json` there and swaps the folder in atomically.
-4. Sets the theme's first wallpaper. Yours go in `~/.config/omarchy/backgrounds/<theme>/` and come first.
+4. Sets the wallpaper: the one given with `--background`, else the one last used with this theme, else
+   its first. Yours go in `~/.config/omarchy/backgrounds/<theme>/` and come first. The wallpaper per
+   theme and the look before the change (for `undo`) are kept in `~/.local/state/omarchy-theme/state.json`.
 5. Pokes the running apps: Hyprland borders through `hyprctl keyword`, then waybar, mako, Alacritty,
    btop and gsettings.
 6. Runs the hooks in `~/.config/omarchy/hooks/theme-set.d/` with the theme name.

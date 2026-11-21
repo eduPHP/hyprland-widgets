@@ -15,6 +15,7 @@ keep frames and shadows identical everywhere.
 | **hyprbt** | Bluetooth power, scan, pair, connect | Quickshell (QML, `exec-once qs -c hyprbt -d`) | `~/code/hyprland-widgets/hyprbt` | waybar `bluetooth` click, `SUPER CTRL B` | popover (`hyprbt`) | yes |
 | **hyprcal** | calendar: clock, month, agenda, Google Calendar + Calendly | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprcal --daemon`) | `~/code/hyprland-widgets/hyprcal` | waybar `custom/hyprcal` click (compact), right-click or `SUPER ALT C` (full) | popover (`hyprcal`) | yes |
 | **hyprpower** | battery details, power profile, Dell charge mode, brightness, keyboard light, monitor layout (extend/mirror/placement/scale) | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprpower --daemon`) | `~/code/hyprland-widgets/hyprpower` | waybar `battery` click, `SUPER CTRL P` | popover (`hyprpower`), toast (`hyprpower-toast`), identify (`hyprpower-identify`) | yes |
+| **hyprtheme** | theme picker with in-picker preview, wallpapers and undo | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprtheme --daemon`) | `~/code/hyprland-widgets/hyprtheme` | `SUPER CTRL SHIFT SPACE` (`omarchy-theme-menu`) | full-screen picker (`hyprtheme`), undo toast (`hyprtheme-toast`) | yes, painted in the highlighted theme while browsing |
 | **hyprspot** | Spotify mini player | GTK4 (Python) | `~/code/hyprland-widgets/hyprspot` | always on, bottom-right | pill + expanded card (`hyprspot`, Hyprland blur rule) | no, separate project with its own look |
 
 ## Layout
@@ -66,6 +67,7 @@ skill/SKILL.md         Claude Code skill (/hypr-ui), linked at ~/.claude/skills/
    | hyprbt | `hyprbt.open` | `qs -c hyprbt ipc call bt close` |
    | hyprcal | `hyprcal.open` | `hyprcal close` |
    | hyprpower | `hyprpower.open` | `hyprpower close` |
+   | hyprtheme | `hyprtheme.open` | `hyprtheme close` |
 
 6. **Screenshots cover the widgets.** Widgets live on the OVERLAY layer, which Hyprland
    draws above even fullscreen windows, so Flameshot's overlay used to sit *under* them.
@@ -148,6 +150,10 @@ The colours follow the current [Omarchy theme](../omarchy-theme). `theme.py` run
 hook, maps the theme's palette onto the 18 colour tokens and writes them to
 `~/.local/state/hypr-ui/theme.json`. The GTK helper and `Tokens.qml` watch that file, so every
 widget repaints live with no restart. Without the file, the `tokens.json` colours are used.
+
+Secondary text stays legible whatever the palette: `muted` reaches 4.5:1 and `faint` 3:1 against
+`bg` and `surface`, the accent 3:1 against `bg`, and `ink` 4.5:1 on the accent. A colour that falls
+short is moved toward `fg` just far enough (`legible()` in `theme.py`).
 
 ```bash
 ./theme.py --print    # the mapping for the current theme

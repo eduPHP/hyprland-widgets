@@ -1,0 +1,58 @@
+/* hyprtheme: only what is specific to the theme picker.
+ * Colours, header, buttons, tabs, entry and the key-hint footer come from the shared hypr-ui
+ * stylesheet. While browsing, the @colours are the highlighted theme's, not the desktop's
+ * (widget.py reloads this sheet through hypr_ui.css_text). */
+
+/* the screen behind the card: the highlighted theme's wallpaper, dimmed */
+.dim { background: alpha(black, 0.38); }
+
+.picker {
+  background: @bg;
+  border: 1px solid @frame;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px alpha(black, 0.38);
+  transition: background 200ms ease;
+}
+
+.picker-header { padding: 14px 16px 12px; border-bottom: 1px solid @line; }
+.picker-header .app-icon { min-width: 30px; min-height: 30px; font-size: 17px; }
+.picker-header .title { color: @bright; }
+.picker-header entry { background: @surface; min-height: 18px; font-size: 12px; }
+.picker-header entry image { color: @muted; }
+
+.tabs button.chip { padding: 3px 10px; font-size: 11px; }
+.tabs button.chip label { color: @muted; font-size: 11px; }
+.tabs button.chip.active { background: @blue; }
+.tabs button.chip.active label { color: @ink; font-weight: bold; }
+
+.grid { padding: 14px 16px; }
+.empty { color: @muted; padding: 40px 0; }
+
+.side {
+  background: @surface;
+  border-left: 1px solid @line;
+  padding: 14px;
+}
+.side .section { color: @muted; }
+.side .section-meta { color: @faint; }
+.side button.ghost, .side button.primary { min-height: 30px; padding: 0 12px; font-size: 12px; }
+.side button.ghost label { color: @fg; }
+
+.term {
+  background: @bg;
+  border: 1px solid @line;
+  border-radius: 7px;
+  padding: 9px 10px;
+  font-size: 10.5px;
+}
+
+.picker .footer { padding: 9px 16px; border-top: 1px solid @line; }
+.picker .footer .hint { color: @muted; font-size: 10.5px; }
+.picker .footer .key { font-size: 10px; }
+
+/* undo toast */
+.toast-glyph { color: @blue; font-size: 17px; min-width: 20px; }
+.toast-title { font-weight: bold; color: @bright; }
+.toast button.primary { min-height: 26px; }
+
+scrollbar slider { background: alpha(@fg, 0.25); min-width: 4px; border-radius: 3px; }

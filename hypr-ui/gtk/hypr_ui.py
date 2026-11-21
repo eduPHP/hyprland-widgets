@@ -76,8 +76,10 @@ def on_theme_changed(callback) -> None:
     _theme["callbacks"].append(callback)
 
 
-def _css_text(own) -> str:
-    colors = TOKENS["color"]
+def css_text(own=(), colors: dict | None = None) -> str:
+    """The base sheet followed by `own` sheets, with the theme's colours, or `colors` instead
+    (for a widget that paints itself in some other theme, like hyprtheme's preview)."""
+    colors = {**TOKENS["color"], **(colors or {})}
     text = re.sub(r"@define-color (\w+) [^;]+;",
                   lambda m: f"@define-color {m.group(1)} {colors[m.group(1)]};" if m.group(1) in colors else m.group(0),
                   (ROOT / "gtk/hypr-ui.css").read_text())
@@ -98,7 +100,7 @@ def _reload_theme() -> bool:
     _theme["pending"] = 0
     _apply_theme_colors()
     for provider, own in _theme["providers"]:
-        provider.load_from_string(_css_text(own))
+        provider.load_from_string(css_text(own))
     for cb in _theme["callbacks"]:
         cb()
     for win in Gtk.Window.list_toplevels():
@@ -124,7 +126,7 @@ def load_css(*own: Path) -> Gtk.CssProvider:
     """One provider holding the base sheet followed by the widget's own sheets, so the
     widget can use every @colour and override any base rule. Follows the theme live."""
     provider = Gtk.CssProvider()
-    provider.load_from_string(_css_text(own))
+    provider.load_from_string(css_text(own))
     Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
     _theme["providers"].append((provider, own))
     _watch_theme()
