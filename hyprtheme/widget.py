@@ -47,6 +47,11 @@ FILTERS = [("all", "All"), ("dark", "Dark"), ("light", "Light"), ("favs", "★ F
 G = {"palette": "\U000f03d8", "search": "\U000f0349", "undo": "\U000f054c"}
 
 
+def log(*parts) -> None:
+    """One line on stderr (the daemon's log), so an apply that goes wrong leaves a trace."""
+    print(GLib.DateTime.new_now_local().format("%H:%M:%S"), "hyprtheme:", *parts, file=sys.stderr, flush=True)
+
+
 def rgb(hexc: str, a: float = 1.0) -> tuple[float, float, float, float]:
     h = hexc.lstrip("#")
     return (*(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)), a)
@@ -665,12 +670,14 @@ class Picker(Gtk.ApplicationWindow):
 
     def apply(self):
         t = self.hi
+        log("apply", t.id if t else None, "current:", self.current)
         if t is None:
             return
         bg = self.wallpaper(t)
         prev = self.by_id.get(self.current)
         self.close_picker()
         if t.id == self.current and bg == self.current_bg:
+            self.app.toast.pop(f"Already on {t.title}", None, t.colors)
             return
         if t.id == self.current:
             args, title = ["bg", str(bg)], f"New {t.title} wallpaper"
@@ -833,20 +840,29 @@ class App(Gtk.Application):
 
     def run_theme(self, args: list[str], done=None):
         """Run omarchy-theme in the background (with this process's layer-shell preload removed)."""
-        launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.STDOUT_SILENCE)
+        cmd = [sys.executable, str(th.ot.__file__), *args]
+        log("run", " ".join(cmd))
+        launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
         launcher.unsetenv("LD_PRELOAD")
-        proc = launcher.spawnv([sys.executable, str(th.ot.__file__), *args])
+        try:
+            proc = launcher.spawnv(cmd)
+        except GLib.Error as e:
+            log("could not start omarchy-theme:", e.message)
+            if done:
+                done(False)
+            return
 
         def finished(p, res):
             try:
-                p.wait_check_finish(res)
-                ok = True
-            except GLib.Error:
-                ok = False
+                _ok, out, _err = p.communicate_utf8_finish(res)
+            except GLib.Error as e:
+                out = e.message
+            ok = p.get_if_exited() and p.get_exit_status() == 0
+            log("omarchy-theme", "ok" if ok else f"failed ({p.get_exit_status()})", (out or "").strip())
             if done:
                 done(ok)
 
-        proc.wait_check_async(None, finished)
+        proc.communicate_utf8_async(None, None, finished)
 
     def undo(self):
         prev = (th.ot.load_state().get("previous") or {}).get("theme")
