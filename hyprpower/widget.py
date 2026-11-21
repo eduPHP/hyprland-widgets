@@ -328,7 +328,7 @@ class MonitorMap(Gtk.DrawingArea):
             self.hits.append((m.name, (bx, by, bw, bh)))
             on = m.name == self.sel
             self._rrect(cr, bx, by, bw, bh, 6)
-            cr.set_source_rgb(*(rgb("bg") if off else (0x28 / 255, 0x34 / 255, 0x57 / 255) if on else rgb("raised")))
+            cr.set_source_rgb(*(rgb("bg") if off else hypr_ui.mix("bg", "blue", 0.2) if on else rgb("raised")))
             cr.fill_preserve()
             cr.set_line_width(1)
             cr.set_dash([4, 3] if off else [])

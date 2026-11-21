@@ -161,11 +161,11 @@ class Segments(Gtk.DrawingArea):
         for i in range(self.N):
             on = i / self.N < self.level
             if not on:
-                cr.set_source_rgba(1, 1, 1, 0.07)
+                cr.set_source_rgba(*hypr_ui.rgba("fg", 0.07))
             elif i >= 28:
-                cr.set_source_rgb(0xF7 / 255, 0x76 / 255, 0x8E / 255)
+                cr.set_source_rgb(*hypr_ui.rgb("red"))
             elif i >= 23:
-                cr.set_source_rgb(0xE0 / 255, 0xAF / 255, 0x68 / 255)
+                cr.set_source_rgb(*hypr_ui.rgb("amber"))
             else:
                 cr.set_source_rgba(c.red, c.green, c.blue, c.alpha)
             cr.rectangle(i * (sw + gap), 0, sw, h)
@@ -189,7 +189,7 @@ class Bar(Gtk.DrawingArea):
         cr.close_path()
 
     def _draw(self, _a, cr, w, h):
-        cr.set_source_rgba(1, 1, 1, 0.08)
+        cr.set_source_rgba(*hypr_ui.rgba("fg", 0.08))
         self._pill(cr, w, h)
         cr.fill()
         fw = max(0.0, min(1.0, self.frac)) * w
@@ -213,14 +213,14 @@ class Radio(Gtk.DrawingArea):
             cr.set_source_rgba(c.red, c.green, c.blue, 1)
             cr.arc(w / 2, h / 2, w / 2, 0, 2 * math.pi)
             cr.fill()
-            cr.set_source_rgb(0x16 / 255, 0x16 / 255, 0x1E / 255)
+            cr.set_source_rgb(*hypr_ui.rgb("ink"))
             cr.set_line_width(2)
             cr.move_to(w * 0.28, h * 0.52)
             cr.line_to(w * 0.44, h * 0.68)
             cr.line_to(w * 0.73, h * 0.36)
             cr.stroke()
         else:
-            cr.set_source_rgba(1, 1, 1, 0.22)
+            cr.set_source_rgba(*hypr_ui.rgba("fg", 0.22))
             cr.set_line_width(1.5)
             cr.arc(w / 2, h / 2, w / 2 - 0.75, 0, 2 * math.pi)
             cr.stroke()
@@ -278,7 +278,7 @@ class Osd(Gtk.Window):
         if node.muted:
             box.add_css_class("muted")
         eyebrow = ("Output" if out else "Input") + (" →" if device_change else "")
-        self.title.set_markup(f"<span size='small' letter_spacing='800' foreground='#737aa2'>{eyebrow.upper()}</span>  {esc(node.label)}")
+        self.title.set_markup(f"<span size='small' letter_spacing='800' foreground='{hypr_ui.hex_color('muted')}'>{eyebrow.upper()}</span>  {esc(node.label)}")
         self.icon.set_text(G[node.icon] if device_change else vol_glyph(node.vol, node.muted) if out else mic_glyph(node.muted))
         self.bar.frac = 0 if node.muted else node.vol / 100
         self.bar.queue_draw()
@@ -582,7 +582,7 @@ class Panel(Gtk.ApplicationWindow):
                 sc.set_value(min(100, n.vol))
                 sc.connect("value-changed", lambda w, nid=n.id: self._on_app_scale(nid, w))
                 vl = label("", "dev-vol", xalign=1.0)
-                name = label(f"<b>{esc(n.label)}</b>  <span foreground='#737aa2'>{esc(n.sub)}</span>", markup=True,
+                name = label(f"<b>{esc(n.label)}</b>  <span foreground='{hypr_ui.hex_color('muted')}'>{esc(n.sub)}</span>", markup=True,
                              hexpand=True, ellipsize=True)
                 name.set_max_width_chars(30)
                 row = hbox(12, mono(n.label), vbox(4, hbox(8, name, vl), sc, hexpand=True, valign=Gtk.Align.CENTER))
@@ -613,7 +613,7 @@ class Panel(Gtk.ApplicationWindow):
         for n in s.rec:
             bar = Bar(4)
             bar.add_css_class("in")
-            name = label(f"<b>{esc(n.label)}</b>  <span foreground='#737aa2'>{esc(n.sub)}</span>", markup=True,
+            name = label(f"<b>{esc(n.label)}</b>  <span foreground='{hypr_ui.hex_color('muted')}'>{esc(n.sub)}</span>", markup=True,
                          hexpand=True, ellipsize=True)
             name.set_max_width_chars(30)
             row = hbox(12, mono(n.label), vbox(6, hbox(8, name, label("silent" if silent else "live", "dev-vol")), bar,

@@ -50,9 +50,32 @@ def gtk(tokens, values):
 
 
 def qml(tokens, values):
-    lines = ["pragma Singleton", "import QtQuick", "import Quickshell", "", f"// {HEADER}", "Singleton {"]
+    lines = ["pragma Singleton", "import QtQuick", "import Quickshell", "import Quickshell.Io", "",
+             f"// {HEADER}", "Singleton {", "    id: root", "",
+             "    // Colours follow the Omarchy theme: hypr-ui/theme.py writes theme.json, this watches it.",
+             "    // The watch is lost when the file is created or replaced, so it is also rechecked every 2 s.",
+             "    property var theme: ({})",
+             "    property string themeText: \"\"",
+             "    function useTheme(t) {",
+             "        if (t === themeText) return;",
+             "        themeText = t;",
+             "        try { theme = JSON.parse(t).color || {}; } catch (e) { theme = {}; }",
+             "    }",
+             "    readonly property FileView themeFile: FileView {",
+             '        path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/hypr-ui/theme.json"',
+             "        watchChanges: true",
+             "        printErrors: false",
+             "        onFileChanged: reload()",
+             "        onLoaded: root.useTheme(text())",
+             "        onLoadFailed: root.useTheme(\"\")",
+             "    }",
+             "    readonly property Timer themePoll: Timer {",
+             "        interval: 2000; running: true; repeat: true",
+             "        onTriggered: root.themeFile.reload()",
+             "    }",
+             ""]
     for k, v in tokens["color"].items():
-        lines.append(f'    readonly property color {k}: "{v}"')
+        lines.append(f'    readonly property color {k}: theme.{k} || "{v}"')
     lines.append("")
     for path, v in values.items():
         if path.startswith("color."):

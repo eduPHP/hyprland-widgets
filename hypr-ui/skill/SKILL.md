@@ -35,7 +35,10 @@ widgets to it.
 1. **Never hard-code a colour, font or size in a widget.** Use the tokens
    (`@blue`, `@fg`, `@muted`… in GTK CSS; `Tokens.blue`, `Tokens.sizeBody`… in QML).
    To change the look, change `tokens.json` or the base sheet and run `./build.py`,
-   so every widget changes together.
+   so every widget changes together. The colours follow the Omarchy theme live
+   (`theme.py` → `~/.local/state/hypr-ui/theme.json`), and light themes exist. So in
+   cairo use `hypr_ui.rgb("red")` / `hypr_ui.rgba("fg", 0.1)` at draw time, in Pango
+   markup use `hypr_ui.hex_color("muted")`, and tint with `alpha(@fg, …)`, never `white`.
 2. **Frame:** a 1px opaque `frame` border (#3f537d). Never a translucent border:
    the screen is at 1.2× scale and translucent 1px lines look uneven.
 3. **Shadow:** only the token shadow (0 4px 12px, 38% black). The layer surface is

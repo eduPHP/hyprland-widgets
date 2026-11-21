@@ -83,5 +83,16 @@ dns.latency_ms = lambda server, tls=False: {"1.1.1.1": 9, "9.9.9.9": 14, "8.8.8.
 dns.apply = lambda *a, **k: 0
 
 import widget  # noqa: E402
+from gi.repository import Gtk  # noqa: E402
 
+
+class DemoApp(widget.App):
+    """Its own app id, so a left-over demo can't answer the real widget's bar clicks."""
+
+    def __init__(self):
+        Gtk.Application.__init__(self, application_id="dev.edu.WifiWidget.Demo")
+        self.win = None
+
+
+widget.App = DemoApp
 widget.main()

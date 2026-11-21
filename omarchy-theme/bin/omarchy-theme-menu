@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Pick an Omarchy theme with fuzzel, each row showing the theme's preview as its icon.
+set -euo pipefail
+cur=$(omarchy-theme current)
+title() { sed -E 's/-/ /g; s/\b(.)/\u\1/g' <<<"$1"; }
+names=()
+while read -r mark name; do
+  [[ $mark == "*" ]] || name=$mark
+  names+=("$name")
+done < <(omarchy-theme list)
+rows() {  # "Title\0icon\x1f<preview>" per theme; bash strings can't hold the NUL, so printf writes it
+  local name dir
+  for name in "${names[@]}"; do
+    dir=~/.config/omarchy/themes/$name
+    [[ -d $dir ]] || dir=~/.local/share/omarchy/themes/$name
+    printf '%s\0icon\x1f%s\n' "$(title "$name")" "$dir/preview.png"
+  done
+}
+pick=$(rows | fuzzel --dmenu --index --prompt "  Theme  " --placeholder "$(title "$cur")" \
+  --select "$(title "$cur")" --lines 12 --width 34 --line-height 40 --icon-theme=hicolor) || exit 0
+[[ -n $pick ]] && exec omarchy-theme set "${names[$pick]}"

@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from gi.repository import Gio, GLib, Gtk
 
 import dns
+import hypr_ui
 import nm
 import state
 import vpn
@@ -190,8 +191,8 @@ class VpnPanel(Panel):
         return True
 
     def _rate_markup(self):
-        return (f"<span color='#7aa2f7'>↓ {fmt_rate(self.rate[0])}</span> "
-                f"<span color='#bb9af7'>↑ {fmt_rate(self.rate[1])}</span> Mb/s")
+        return (f"<span color='{hypr_ui.hex_color('blue')}'>↓ {fmt_rate(self.rate[0])}</span> "
+                f"<span color='{hypr_ui.hex_color('purple')}'>↑ {fmt_rate(self.rate[1])}</span> Mb/s")
 
     def _default_tunnel(self) -> vpn.Tunnel | None:
         by_uuid = {t.uuid: t for t in self.tuns}
@@ -431,7 +432,8 @@ class DnsPanel(Panel):
         self.card.append(hbox(10, icon_box(I_GLOBE), head, avg))
         first = self.live[0] if self.live else "no server"
         proto = "dns-over-tls :853" if self.live_tls else "plain dns :53"
-        mark = "<span color='#9ece6a'>✓</span>" if self.live_tls else "<span color='#e0af68'>!</span>"
+        mark = (f"<span color='{hypr_ui.hex_color('green')}'>✓</span>" if self.live_tls
+                else f"<span color='{hypr_ui.hex_color('amber')}'>!</span>")
         self.card.append(label(f"{mark} {first} · {proto}", "v", markup=True))
         prot = vpn.protecting(self.win.vpn.tuns)
         if prot:

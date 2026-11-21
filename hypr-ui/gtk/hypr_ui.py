@@ -12,6 +12,7 @@ The root box of a popover gets the `popover` CSS class; a bottom toast gets `toa
 
 import json
 import os
+import re
 from pathlib import Path
 
 import cairo
@@ -25,16 +26,108 @@ TOKENS = json.loads((ROOT / "tokens.json").read_text())
 SURFACE = TOKENS["surface"]
 MARGIN = SURFACE["margin"]
 
+# --- theme -------------------------------------------------------------------------
+# theme.py writes the Omarchy theme's colours here (see hypr-ui/theme.py); they replace the
+# tokens.json colours, and the widgets repaint live when the file changes.
+THEME_FILE = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "hypr-ui/theme.json"
+DEFAULT_COLORS = dict(TOKENS["color"])
+_theme: dict = {"providers": [], "callbacks": [], "monitor": None, "pending": 0}
+
+
+def _theme_colors() -> dict:
+    try:
+        return {k: v for k, v in json.loads(THEME_FILE.read_text())["color"].items() if k in DEFAULT_COLORS}
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+
+
+def _apply_theme_colors() -> None:
+    """Update TOKENS["color"] in place, so code holding a reference to it sees the new values."""
+    TOKENS["color"].clear()
+    TOKENS["color"].update(DEFAULT_COLORS)
+    TOKENS["color"].update(_theme_colors())
+
+
+_apply_theme_colors()
+
+
+def rgb(name: str) -> tuple[float, float, float]:
+    """A token colour as cairo floats, read now (so it follows the theme)."""
+    h = TOKENS["color"][name].lstrip("#")
+    return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+
+def rgba(name: str, a: float = 1.0) -> tuple[float, float, float, float]:
+    return (*rgb(name), a)
+
+
+def hex_color(name: str) -> str:
+    """A token colour as #rrggbb, for Pango markup."""
+    return TOKENS["color"][name]
+
+
+def mix(a: str, b: str, t: float) -> tuple[float, float, float]:
+    """Blend two token colours (t=0 -> a, 1 -> b) as cairo floats."""
+    return tuple(x * (1 - t) + y * t for x, y in zip(rgb(a), rgb(b)))
+
+
+def on_theme_changed(callback) -> None:
+    """Call `callback()` after the theme changes (for state that caches colours)."""
+    _theme["callbacks"].append(callback)
+
+
+def _css_text(own) -> str:
+    colors = TOKENS["color"]
+    text = re.sub(r"@define-color (\w+) [^;]+;",
+                  lambda m: f"@define-color {m.group(1)} {colors[m.group(1)]};" if m.group(1) in colors else m.group(0),
+                  (ROOT / "gtk/hypr-ui.css").read_text())
+    for p in own:
+        text += f"\n/* ---- {Path(p).name} ---- */\n" + Path(p).read_text()
+    return text
+
+
+def _redraw(widget) -> None:
+    widget.queue_draw()
+    child = widget.get_first_child()
+    while child is not None:
+        _redraw(child)
+        child = child.get_next_sibling()
+
+
+def _reload_theme() -> bool:
+    _theme["pending"] = 0
+    _apply_theme_colors()
+    for provider, own in _theme["providers"]:
+        provider.load_from_string(_css_text(own))
+    for cb in _theme["callbacks"]:
+        cb()
+    for win in Gtk.Window.list_toplevels():
+        _redraw(win)
+    return False
+
+
+def _watch_theme() -> None:
+    if _theme["monitor"] is not None:
+        return
+    THEME_FILE.parent.mkdir(parents=True, exist_ok=True)
+    mon = Gio.File.new_for_path(str(THEME_FILE)).monitor_file(Gio.FileMonitorFlags.WATCH_MOVES, None)
+
+    def changed(*_):  # a write comes as several events; settle first
+        if not _theme["pending"]:
+            _theme["pending"] = GLib.timeout_add(150, _reload_theme)
+
+    mon.connect("changed", changed)
+    _theme["monitor"] = mon
+
 
 def load_css(*own: Path) -> Gtk.CssProvider:
     """One provider holding the base sheet followed by the widget's own sheets, so the
-    widget can use every @colour and override any base rule."""
-    text = (ROOT / "gtk/hypr-ui.css").read_text()
-    for p in own:
-        text += f"\n/* ---- {Path(p).name} ---- */\n" + Path(p).read_text()
+    widget can use every @colour and override any base rule. Follows the theme live."""
     provider = Gtk.CssProvider()
-    provider.load_from_string(text)
+    provider.load_from_string(_css_text(own))
     Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+    _theme["providers"].append((provider, own))
+    _watch_theme()
     return provider
 
 

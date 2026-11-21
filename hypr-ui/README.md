@@ -24,7 +24,8 @@ tokens.json            the source: colours, type, radii, spacing, shadow, surfac
 build.py               renders the two outputs below; run it after any change
 gtk/hypr-ui.css.in     GTK base stylesheet template ({{token.path}} placeholders)
 gtk/hypr-ui.css        generated
-gtk/hypr_ui.py         GTK helper: load_css(), popover(), toast(), solo()
+gtk/hypr_ui.py         GTK helper: load_css(), popover(), toast(), solo(), rgb()/hex_color() for drawn colours
+theme.py               maps the Omarchy theme's palette onto the colour tokens (see Themes)
 bin/hypr-ui-solo       closes the other popovers when one opens
 qml/Tokens.qml         generated Quickshell singleton (Tokens.blue, Tokens.sizeBody, …)
 skill/SKILL.md         Claude Code skill (/hypr-ui), linked at ~/.claude/skills/hypr-ui
@@ -140,3 +141,19 @@ pkill -f code/wifi-widget/wifi-widget     # next waybar click starts it again
 ```
 
 hyprbt reloads by itself. Pre-migration copies are in each widget's `.bak-hypr-ui*` folder.
+
+## Themes
+
+The colours follow the current [Omarchy theme](../omarchy-theme). `theme.py` runs as a theme-set
+hook, maps the theme's palette onto the 18 colour tokens and writes them to
+`~/.local/state/hypr-ui/theme.json`. The GTK helper and `Tokens.qml` watch that file, so every
+widget repaints live with no restart. Without the file, the `tokens.json` colours are used.
+
+```bash
+./theme.py --print    # the mapping for the current theme
+./theme.py --reset    # back to tokens.json
+```
+
+Widgets must not hardcode colours. CSS uses the `@` names. Cairo drawing calls
+`hypr_ui.rgb("red")` / `rgba("fg", 0.1)` at draw time, and Pango markup uses `hypr_ui.hex_color("muted")`.
+Light themes exist, so tint with `alpha(@fg, …)`, not `alpha(white, …)`.

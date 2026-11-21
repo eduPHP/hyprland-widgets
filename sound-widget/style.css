@@ -5,19 +5,19 @@
 
 /* output / input tabs */
 button.dir {
-  background: alpha(white, 0.03);
-  border: 1px solid alpha(white, 0.06);
+  background: alpha(@fg, 0.03);
+  border: 1px solid alpha(@fg, 0.06);
   border-radius: 11px;
   box-shadow: none;
   padding: 8px;
   min-height: 0;
 }
-button.dir:hover { background: alpha(white, 0.05); }
+button.dir:hover { background: alpha(@fg, 0.05); }
 .dir-icon {
   min-width: 30px;
   min-height: 30px;
   border-radius: 8px;
-  background: alpha(white, 0.06);
+  background: alpha(@fg, 0.06);
   font-size: 15px;
 }
 .dir-name { font-weight: bold; font-size: 12px; color: @bright; }
@@ -55,7 +55,7 @@ scale { padding: 6px 0; margin: 0; }
 scale trough {
   min-height: 6px;
   border-radius: 999px;
-  background: alpha(white, 0.08);
+  background: alpha(@fg, 0.08);
   border: none;
 }
 scale highlight { border-radius: 999px; background: @blue; border: none; min-height: 6px; }
@@ -64,16 +64,16 @@ scale slider {
   min-height: 16px;
   margin: -6px 0;
   border-radius: 999px;
-  background: #f2f4f8;
+  background: @bright;
   border: none;
   box-shadow: 0 1px 3px alpha(black, 0.4);
 }
 scale:focus-within slider { box-shadow: 0 0 0 4px alpha(@blue, 0.35); }
 .card.in scale highlight { background: @orange; }
-.card.muted scale highlight { background: #4a5068; }
+.card.muted scale highlight { background: @faint; }
 scale.mini trough, scale.mini highlight { min-height: 4px; }
 scale.mini highlight { background: alpha(@blue, 0.8); }
-scale.mini.muted highlight { background: #4a5068; }
+scale.mini.muted highlight { background: @faint; }
 scale.mini slider { min-width: 12px; min-height: 12px; margin: -4px 0; background: @bright; }
 
 /* meters */
@@ -95,7 +95,7 @@ scale.mini slider { min-width: 12px; min-height: 12px; margin: -4px 0; backgroun
   min-width: 30px;
   min-height: 30px;
   border-radius: 8px;
-  background: alpha(white, 0.05);
+  background: alpha(@fg, 0.05);
   font-size: 15px;
 }
 .row.out.current .dev-icon { color: @blue; background: alpha(@blue, 0.16); }
@@ -113,17 +113,17 @@ scale.mini slider { min-width: 12px; min-height: 12px; margin: -4px 0; backgroun
   font-size: 10px;
   font-weight: bold;
 }
-.mono.c0 { color: #c7a6ff; background: alpha(#c7a6ff, 0.12); }
-.mono.c1 { color: #8ee3ae; background: alpha(#8ee3ae, 0.12); }
-.mono.c2 { color: #a9b6ff; background: alpha(#a9b6ff, 0.12); }
-.mono.c3 { color: #7dcfff; background: alpha(#7dcfff, 0.12); }
-.mono.c4 { color: #e0af68; background: alpha(#e0af68, 0.12); }
-.mono.c5 { color: #c3c8d6; background: alpha(white, 0.08); }
+.mono.c0 { color: @purple; background: alpha(@purple, 0.12); }
+.mono.c1 { color: @green; background: alpha(@green, 0.12); }
+.mono.c2 { color: @blue; background: alpha(@blue, 0.12); }
+.mono.c3 { color: @cyan; background: alpha(@cyan, 0.12); }
+.mono.c4 { color: @amber; background: alpha(@amber, 0.12); }
+.mono.c5 { color: @muted; background: alpha(@fg, 0.08); }
 
 .proc { padding: 2px 4px 2px 8px; }
 .proc.on .proc-icon { color: @orange; background: alpha(@orange, 0.14); }
 switch:checked { background: @orange; }
-switch:checked slider { background: white; }
+switch:checked slider { background: @bright; }
 
 /* key strip */
 .footer { padding-top: 10px; }
@@ -132,12 +132,12 @@ button.cap {
   min-height: 0;
   padding: 6px 0;
   border-radius: 9px;
-  border: 1px solid alpha(white, 0.09);
-  background: alpha(white, 0.03);
+  border: 1px solid alpha(@fg, 0.09);
+  background: alpha(@fg, 0.03);
   box-shadow: inset 0 -2px 0 alpha(black, 0.35);
   transition: all 120ms ease;
 }
-button.cap:hover { background: alpha(white, 0.06); }
+button.cap:hover { background: alpha(@fg, 0.06); }
 button.cap.pressed { border-color: alpha(@blue, 0.75); background: alpha(@blue, 0.22); box-shadow: inset 0 1px 0 alpha(black, 0.4); }
 button.cap.in.pressed { border-color: alpha(@orange, 0.75); background: alpha(@orange, 0.22); }
 .cap-key { font-weight: bold; font-size: 11px; color: @bright; }
@@ -156,7 +156,7 @@ button.cap.in.pressed { border-color: alpha(@orange, 0.75); background: alpha(@o
 .osd.muted .osd-icon { color: @red; background: alpha(@red, 0.12); }
 .osd-title { color: @fg; font-size: 12px; }
 .osd.in .bar { color: @orange; }
-.osd-val { font-size: 16px; font-weight: bold; min-width: 60px; color: #f2f4f8; }
+.osd-val { font-size: 16px; font-weight: bold; min-width: 60px; color: @bright; }
 .osd.muted .osd-val { color: @red; }
 
 /* hyprspot strip (output tab) */
