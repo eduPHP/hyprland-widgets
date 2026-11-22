@@ -26,6 +26,8 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 ## Gallery
 
 <table>
+<tr><td colspan="3"><img src="docs/screenshots/hyprmenu.png" alt="hyprmenu start menu: most-used apps grid, recent apps, the Omarchy menu and the power row"></td></tr>
+<tr><td colspan="3"><img src="docs/screenshots/hyprtheme.png" alt="hyprtheme picker: Omarchy themes as wallpaper previews with their colour palettes"></td></tr>
 <tr>
 <td width="33%"><img src="docs/screenshots/wifi.png" alt="wifi tab: connected network card with throughput graph and the list of nearby networks"></td>
 <td width="33%"><img src="docs/screenshots/wifi-vpn.png" alt="vpn tab: active WireGuard tunnel with exit IP and location, other tunnels with latency"></td>
