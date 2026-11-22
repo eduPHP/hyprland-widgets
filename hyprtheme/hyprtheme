@@ -44,6 +44,15 @@ def start_daemon():
 
 def daemon():
     # gtk4-layer-shell must be loaded before libwayland-client (HYPRTHEME_WINDOWED=1: a plain window, for testing)
+    if not os.environ.get("HYPRTHEME_WINDOWED"):
+        # layer shell only exists on Wayland: never fall back to XWayland, where the picker would be a
+        # plain window in a corner (a shell without WAYLAND_DISPLAY, e.g. ssh, starting the daemon)
+        os.environ["GDK_BACKEND"] = "wayland"
+        if not os.environ.get("WAYLAND_DISPLAY"):
+            socks = sorted(RUN.glob("wayland-[0-9]"))
+            if not socks:
+                sys.exit("hyprtheme: no Wayland display (WAYLAND_DISPLAY is unset)")
+            os.environ["WAYLAND_DISPLAY"] = socks[0].name
     if not os.environ.get("HYPRTHEME_WINDOWED") and LAYER_SHELL not in os.environ.get("LD_PRELOAD", ""):
         os.environ["LD_PRELOAD"] = ":".join(filter(None, [LAYER_SHELL, os.environ.get("LD_PRELOAD")]))
         os.execv(sys.executable, [sys.executable, os.path.realpath(__file__), *sys.argv[1:]])

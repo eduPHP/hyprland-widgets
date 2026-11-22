@@ -936,7 +936,9 @@ class App(Gtk.Application):
         self.picker = Picker(self)
         self.toast = Toast(self)
         self._serve()
-        log("daemon started, python", sys.version.split()[0], "gtk", f"{Gtk.get_major_version()}.{Gtk.get_minor_version()}")
+        log("daemon started, python", sys.version.split()[0], "gtk", f"{Gtk.get_major_version()}.{Gtk.get_minor_version()}",
+            "display", type(Gdk.Display.get_default()).__name__,
+            "layer-shell", "off (windowed)" if WINDOWED else Layer.is_supported())
         GLib.idle_add(lambda: self.picker.reload() or False)  # thumbnails are ready by the first open
 
     def do_activate(self):
