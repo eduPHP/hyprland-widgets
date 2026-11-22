@@ -3,9 +3,11 @@
 
     omarchy-theme list                 installed themes, current one marked
     omarchy-theme current              name of the current theme
-    omarchy-theme set <name> [--keep-background]
+    omarchy-theme set <name> [--background <image> | --keep-background]
     omarchy-theme next | prev          step through the themes
+    omarchy-theme bg <image>           set a wallpaper for the current theme
     omarchy-theme bg-next [--restore]  next wallpaper of the current theme
+    omarchy-theme undo                 back to the theme and wallpaper before the last change
     omarchy-theme refresh              re-render the current theme (after editing a template)
 
 Installed as omarchy-theme-set, omarchy-theme-list, ... symlinks too; the name picks the command.
@@ -18,6 +20,10 @@ Setting a theme renders every *.tpl template into ~/.config/omarchy/current/them
 ~/.config/omarchy/themed/ win over the ones next to this file), writes the resolved palette to
 colors.json there, swaps the folder in atomically, sets the wallpaper, pokes the running apps and
 runs the ~/.config/omarchy/hooks/theme-set.d/* hooks with the theme name.
+
+The wallpaper picked for each theme is remembered, so switching back to a theme brings its wallpaper
+back, and the theme and wallpaper before each change are kept for `undo`
+(~/.local/state/omarchy-theme/state.json).
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 from pathlib import Path
 
@@ -44,6 +51,7 @@ USER_TEMPLATES = CONFIG / "themed"
 TEMPLATES = HERE / "themed"
 HOOKS = CONFIG / "hooks"
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp"}
+STATE = Path(os.environ.get("XDG_STATE_HOME") or HOME / ".local/state") / "omarchy-theme/state.json"
 
 
 # --- palette -------------------------------------------------------------------------
@@ -241,15 +249,71 @@ def backgrounds(name: str, theme_dir: Path | None = None) -> list[Path]:
     return out
 
 
+# --- state: remembered wallpaper per theme, the previous look for undo ----------------
+
+def load_state() -> dict:
+    try:
+        s = json.loads(STATE.read_text())
+        return s if isinstance(s, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(s: dict) -> None:
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = STATE.with_name("state.json.new")
+    tmp.write_text(json.dumps(s, indent=2, sort_keys=True) + "\n")
+    os.replace(tmp, STATE)
+
+
+def current_background() -> Path | None:
+    try:
+        return Path(os.readlink(BACKGROUND)) if BACKGROUND.is_symlink() else None
+    except OSError:
+        return None
+
+
+def remembered_background(name: str, theme_dir: Path | None = None) -> Path | None:
+    """The wallpaper last used with this theme, if it is still one of its wallpapers, else its first."""
+    bgs = backgrounds(name, theme_dir)
+    saved = load_state().get("backgrounds", {}).get(name)
+    if saved and Path(saved) in bgs:
+        return Path(saved)
+    return bgs[0] if bgs else None
+
+
+def remember(name: str | None, background: Path | None, previous: dict | None = None) -> None:
+    s = load_state()
+    if name and background:
+        s.setdefault("backgrounds", {})[name] = str(background)
+    if previous is not None:
+        s["previous"] = previous
+    save_state(s)
+
+
+def snapshot() -> dict:
+    """The look right now, for undo."""
+    bg = current_background()
+    return {"theme": current(), "background": str(bg) if bg else None}
+
+
 def set_background(path: Path) -> None:
     CURRENT.mkdir(parents=True, exist_ok=True)
     tmp = BACKGROUND.with_name("background.new")
     tmp.unlink(missing_ok=True)
     tmp.symlink_to(path)
     os.replace(tmp, BACKGROUND)
-    subprocess.run(["pkill", "-x", "swaybg"], check=False)
-    subprocess.Popen(["swaybg", "-i", str(path), "-m", "fill"], stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL, start_new_session=True)
+    # start the new swaybg before stopping the old one, so the screen doesn't flash black between
+    old = subprocess.run(["pgrep", "-x", "swaybg"], capture_output=True, text=True).stdout.split()
+    try:
+        subprocess.Popen(["swaybg", "-i", str(path), "-m", "fill"], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError as e:
+        print(f"omarchy-theme: swaybg: {e}", file=sys.stderr)
+        return
+    if old:
+        time.sleep(0.4)  # long enough for the new one to draw
+        subprocess.run(["kill", *old], check=False, stderr=subprocess.DEVNULL)
 
 
 def stage(name: str, theme_dir: Path) -> dict:
@@ -298,8 +362,9 @@ def run(*cmd: str) -> None:
         pass
 
 
-def poke_apps(c: dict) -> None:
-    """Make the running apps pick the new files up."""
+def poke_apps(c: dict, gtk_mode: bool = True) -> None:
+    """Make the running apps pick the new files up. `gtk_mode=False` leaves GTK's light/dark
+    setting alone (it makes every GTK window repaint, too much for a preview)."""
     t = THEME_OUT
     run("hyprctl", "--batch",
         f"keyword general:col.active_border {c['hyprland_active_border_hypr']} ; "
@@ -312,14 +377,19 @@ def poke_apps(c: dict) -> None:
     if alacritty.exists():
         alacritty.touch()  # live_config_reload only watches the main file reliably
     light = c["mode"] == "light"
+    if gtk_mode:
+        set_gtk_mode(light)
+    if (t / "btop.theme").exists():
+        run("pkill", "-SIGUSR2", "-x", "btop")
+
+
+def set_gtk_mode(light: bool) -> None:
     run("gsettings", "set", "org.gnome.desktop.interface", "color-scheme", "prefer-light" if light else "prefer-dark")
     gtk = subprocess.run(["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"],
                          capture_output=True, text=True).stdout.strip().strip("'")
     if gtk:
         base = gtk.removesuffix("-dark")
         run("gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", base if light else base + "-dark")
-    if (t / "btop.theme").exists():
-        run("pkill", "-SIGUSR2", "-x", "btop")
 
 
 def run_hooks(name: str) -> None:
@@ -330,23 +400,43 @@ def run_hooks(name: str) -> None:
                              start_new_session=True)
 
 
-def cmd_set(args: list[str]) -> int:
+def cmd_set(args: list[str], record: bool = True) -> int:
     keep = "--keep-background" in args
-    words = [a for a in args if not a.startswith("--")]
-    if not words:
-        print("usage: omarchy-theme set <name> [--keep-background]", file=sys.stderr)
+    preview = "--preview" in args  # a picker trying it on: no gsettings, nothing remembered
+    words, bg, frm, frm_bg = [], None, None, None
+    it = iter(args)
+    for a in it:
+        if a == "--background":
+            bg = next(it, None)
+        elif a.startswith("--background="):
+            bg = a.split("=", 1)[1]
+        elif a == "--from":  # the look to undo back to, when it isn't the current one (after previews)
+            frm = next(it, None)
+        elif a == "--from-background":
+            frm_bg = next(it, None)
+        elif not a.startswith("--"):
+            words.append(a)
+    if not words or (bg is not None and not bg):
+        print("usage: omarchy-theme set <name> [--background <image> | --keep-background]", file=sys.stderr)
         return 2
     themes = theme_dirs()
     name = slug(" ".join(words))
     if name not in themes:
         print(f"omarchy-theme: no theme {name!r}. Installed: {', '.join(themes)}", file=sys.stderr)
         return 1
+    if bg is not None and not Path(bg).expanduser().is_file():
+        print(f"omarchy-theme: no image {bg!r}", file=sys.stderr)
+        return 1
+    before = {"theme": frm, "background": frm_bg} if frm else snapshot()
     c = stage(name, themes[name])
     if not keep:
-        bgs = backgrounds(name, themes[name])
-        if bgs:
-            set_background(bgs[0])
-    poke_apps(c)
+        image = Path(bg).expanduser().absolute() if bg else remembered_background(name, themes[name])
+        if image:
+            set_background(image)
+    if not preview:
+        remember(name, None if keep else current_background(),
+                 before if record and before["theme"] and before != snapshot() else None)
+    poke_apps(c, gtk_mode=not preview)
     run_hooks(name)
     print(f"theme: {pretty(name)} ({c['mode']})")
     return 0
@@ -381,8 +471,36 @@ def cmd_bg_next(args: list[str]) -> int:
         set_background(cur)
         return 0
     i = bgs.index(cur) if cur in bgs else -1
+    before = snapshot()
     set_background(bgs[(i + 1) % len(bgs)])
+    remember(name, current_background(), before)
     return 0
+
+
+def cmd_bg(args: list[str]) -> int:
+    if len(args) != 1 or not Path(args[0]).expanduser().is_file():
+        print("usage: omarchy-theme bg <image>", file=sys.stderr)
+        return 2
+    before = snapshot()
+    set_background(Path(args[0]).expanduser().absolute())
+    remember(current(), current_background(), before)
+    return 0
+
+
+def cmd_undo(_args) -> int:
+    """Back to the look before the last change. Running it again goes forward again."""
+    prev = load_state().get("previous") or {}
+    name, bg = prev.get("theme"), prev.get("background")
+    if not name:
+        print("omarchy-theme: nothing to undo", file=sys.stderr)
+        return 1
+    if bg and not Path(bg).is_file():
+        bg = None
+    if name == current():
+        if not bg:
+            return 1
+        return cmd_bg([bg])
+    return cmd_set([name] + (["--background", bg] if bg else []))
 
 
 def cmd_refresh(_args) -> int:
@@ -390,13 +508,13 @@ def cmd_refresh(_args) -> int:
     if not name:
         print("omarchy-theme: no current theme", file=sys.stderr)
         return 1
-    return cmd_set([name, "--keep-background"])
+    return cmd_set([name, "--keep-background"], record=False)
 
 
 COMMANDS = {
     "set": cmd_set, "list": cmd_list, "current": lambda a: print(current() or "") or 0,
     "next": lambda a: cmd_step(1), "prev": lambda a: cmd_step(-1),
-    "bg-next": cmd_bg_next, "refresh": cmd_refresh,
+    "bg": cmd_bg, "bg-next": cmd_bg_next, "undo": cmd_undo, "refresh": cmd_refresh,
 }
 
 

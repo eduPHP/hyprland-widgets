@@ -36,6 +36,35 @@ def luma(c: str) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+def contrast(a: str, b: str) -> float:
+    """WCAG contrast ratio of two #rrggbb colours (1 to 21)."""
+    def lin(c):
+        c = c.lstrip("#")
+        v = [int(c[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+        v = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in v]
+        return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
+    hi, lo = sorted((lin(a), lin(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def legible(c: str, against: list[str], ratio: float, toward: str) -> str:
+    """`c`, moved toward `toward` just far enough to reach `ratio` against every colour in `against`.
+    Many palettes keep their comment grey too close to the background for small UI text."""
+    for step in range(21):
+        out = mix(c, toward, step / 20)
+        if min(contrast(out, a) for a in against) >= ratio:
+            return out
+    return toward
+
+
+def ink(accent: str, bg: str, fg: str) -> str:
+    """Text on an accent-filled control: whichever end of the palette reads on the accent,
+    pushed toward black or white when neither reaches 4.5:1."""
+    best = max((bg, fg), key=lambda c: contrast(c, accent))
+    end = max(("#000000", "#ffffff"), key=lambda c: contrast(c, accent))
+    return legible(best, [accent], 4.5, end)
+
+
 def palette() -> tuple[dict, Path] | tuple[None, None]:
     for d in THEME_DIRS:
         if (d / "colors.json").exists():
@@ -70,18 +99,21 @@ def tokens(p: dict) -> dict:
     fg = p["foreground"] if light else p["bright_foreground"]
     accent = p["accent"]
     pick = (lambda k: p[k]) if light else (lambda k: p["bright_" + k])  # bright variants wash out on light
+    surface = mix(p["background"], p["lighter_background"], 0.5)
+    grounds = [bg, surface, p["background"]]
     return {
         "bg": bg,
-        "surface": mix(p["background"], p["lighter_background"], 0.5),
+        "surface": surface,
         "raised": p["lighter_background"],
         "line": p["selection"],
         "frame": mix(p["background"], accent, 0.38),
         "track": mix(p["lighter_background"], p.get("muted", p["dark_foreground"]), 0.4),
         "fg": fg,
         "bright": mix(fg, "#000000" if light else "#ffffff", 0.4 if light else 0.6),
-        "muted": mix(p["dark_foreground"], fg, 0.35),
-        "faint": p["dark_foreground"],
-        "blue": accent,
+        # secondary text must still read at 10-11px: 4.5:1, and 3:1 for the faintest hints
+        "muted": legible(mix(p["dark_foreground"], fg, 0.35), grounds, 4.5, fg),
+        "faint": legible(p["dark_foreground"], grounds, 3.0, fg),
+        "blue": legible(accent, [bg], 3.0, fg),
         "cyan": pick("cyan"),
         "purple": pick("magenta"),
         "green": p["green"],
@@ -89,7 +121,7 @@ def tokens(p: dict) -> dict:
         "orange": p["orange"],
         "red": p["red"],
         # text on an accent-filled control: whichever end of the palette reads on the accent
-        "ink": (fg if light else bg) if luma(accent) > 0.45 else (bg if light else fg),
+        "ink": ink(legible(accent, [bg], 3.0, fg), bg, fg),
     }
 
 

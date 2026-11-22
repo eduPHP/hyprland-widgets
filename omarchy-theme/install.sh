@@ -27,9 +27,10 @@ link() {  # link NAME TARGET, keeping a non-link file that is already there
   ln -sfn "$2" "$dst"
 }
 link omarchy-theme "$HERE/omarchy_theme.py"
-for c in set list current next prev refresh bg-next; do link "omarchy-theme-$c" "$HERE/omarchy_theme.py"; done
+for c in set list current next prev refresh bg bg-next undo; do link "omarchy-theme-$c" "$HERE/omarchy_theme.py"; done
 link omarchy-theme-menu "$HERE/bin/omarchy-theme-menu"
+link hyprtheme "$HERE/../hyprtheme/hyprtheme"  # the picker; omarchy-theme-menu opens it
 # hypr-ui widgets (and hyprspot) follow the theme through this hook
 [[ -x $HERE/../hypr-ui/theme.py ]] && ln -sfn "$HERE/../hypr-ui/theme.py" ~/.config/omarchy/hooks/theme-set.d/hypr-ui
-echo "commands: omarchy-theme {set,list,current,next,prev,refresh,bg-next}, omarchy-theme-menu"
+echo "commands: omarchy-theme {set,list,current,next,prev,refresh,bg,bg-next,undo}, hyprtheme, omarchy-theme-menu"
 [[ -e ~/.config/omarchy/current/theme ]] || echo "now pick one: omarchy-theme set tokyo-night"

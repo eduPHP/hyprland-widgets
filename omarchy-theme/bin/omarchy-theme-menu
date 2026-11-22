@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Pick an Omarchy theme with fuzzel, each row showing the theme's preview as its icon.
+# Pick an Omarchy theme. Opens hyprtheme (the GTK picker in ../hyprtheme) when it is installed;
+# otherwise falls back to fuzzel, each row showing the theme's preview as its icon.
 set -euo pipefail
+if command -v hyprtheme >/dev/null && [[ -z ${OMARCHY_THEME_FUZZEL:-} ]]; then
+  exec hyprtheme  # toggles
+fi
 cur=$(omarchy-theme current)
 title() { sed -E 's/-/ /g; s/\b(.)/\u\1/g' <<<"$1"; }
 names=()

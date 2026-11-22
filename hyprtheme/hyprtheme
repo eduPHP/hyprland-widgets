@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""hyprtheme: Omarchy theme picker for Hyprland (hypr-ui look). Kept free of GTK imports so binds stay fast.
+
+  hyprtheme                  toggle the picker (starts the daemon on first run)
+  hyprtheme open | close     open if closed, close if open (close never starts the daemon)
+  hyprtheme undo             back to the theme and wallpaper before the last change
+  hyprtheme quit             stop the daemon
+  hyprtheme --daemon         run the resident GTK process (Hyprland exec-once)
+
+Browsing only repaints the picker: nothing on the desktop changes until Enter, and Esc leaves
+everything as it was. Applying runs `omarchy-theme set`.
+"""
+
+import os
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(os.path.realpath(__file__)).parent
+sys.path.insert(0, str(HERE))
+RUN = Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}")
+SOCK = RUN / "hyprtheme.sock"
+LAYER_SHELL = "/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0"
+
+
+def send(cmd: str) -> bool:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.connect(str(SOCK))
+        s.sendall(cmd.encode())
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def start_daemon():
+    subprocess.Popen([sys.executable, os.path.realpath(__file__), "--daemon"], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def daemon():
+    # gtk4-layer-shell must be loaded before libwayland-client (HYPRTHEME_WINDOWED=1: a plain window, for testing)
+    if not os.environ.get("HYPRTHEME_WINDOWED"):
+        # layer shell only exists on Wayland: never fall back to XWayland, where the picker would be a
+        # plain window in a corner (a shell without WAYLAND_DISPLAY, e.g. ssh, starting the daemon)
+        os.environ["GDK_BACKEND"] = "wayland"
+        if not os.environ.get("WAYLAND_DISPLAY"):
+            socks = sorted(RUN.glob("wayland-[0-9]"))
+            if not socks:
+                sys.exit("hyprtheme: no Wayland display (WAYLAND_DISPLAY is unset)")
+            os.environ["WAYLAND_DISPLAY"] = socks[0].name
+    if not os.environ.get("HYPRTHEME_WINDOWED") and LAYER_SHELL not in os.environ.get("LD_PRELOAD", ""):
+        os.environ["LD_PRELOAD"] = ":".join(filter(None, [LAYER_SHELL, os.environ.get("LD_PRELOAD")]))
+        os.execv(sys.executable, [sys.executable, os.path.realpath(__file__), *sys.argv[1:]])
+    if send("ping"):
+        sys.exit("hyprtheme daemon already running")
+    import widget
+
+    widget.main(SOCK)
+
+
+def main():
+    args = sys.argv[1:]
+    if args[:1] == ["--daemon"]:
+        return daemon()
+    if args in (["-h"], ["--help"], ["help"]):
+        return print(__doc__)
+    cmd = args[:1] or ["toggle"]
+    if cmd[0] not in ("toggle", "open", "close", "undo", "quit"):
+        sys.exit(__doc__)
+    if send(cmd[0]) or cmd[0] in ("close", "quit"):
+        return
+    if cmd[0] == "undo":  # no daemon: undo without the toast
+        import themes
+
+        sys.exit(themes.ot.main(["omarchy-theme", "undo"]))
+    start_daemon()
+    for _ in range(60):
+        time.sleep(0.1)
+        if send(cmd[0]):
+            return
+    sys.exit("hyprtheme daemon did not start")
+
+
+if __name__ == "__main__":
+    main()
