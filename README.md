@@ -49,6 +49,8 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 - **One look.** Every popover takes its colours, radii, spacing and shadow from [`hypr-ui`](hypr-ui).
 - **Follows your theme.** `omarchy-theme set gruvbox` (or Super+Ctrl+Shift+Space for the hyprtheme picker) switches all of them,
   hyprspot included, to any of Omarchy's 23 themes, light ones too, without a restart.
+- **A start menu.** Super+Space opens [`hyprmenu`](hyprmenu): your most-used apps (by time in focus), the
+  Omarchy menu, and a search over both. Super+Alt+Space opens it on the menu side.
 - **One at a time.** Opening any popover closes the others (`hypr-ui/bin/hypr-ui-solo`).
 - **Resident daemons.** The GTK widgets stay running and toggle instantly; waybar modules call
   `<widget>` on click and `<widget> --status` for their bar text.
@@ -73,7 +75,7 @@ It also links the [`hyprtheme`](hyprtheme) picker (`webp-pixbuf-loader` lets it 
 git clone https://github.com/eduPHP/hyprland-widgets.git ~/code/hyprland-widgets
 cd ~/code/hyprland-widgets
 ln -s "$PWD/hypr-ui" ~/.config/hypr-ui
-for w in wifi-widget sound-widget hyprcal hyprpower; do ln -s "$PWD/$w/$w" ~/.local/bin/$w; done
+for w in wifi-widget sound-widget hyprcal hyprpower hyprmenu; do ln -s "$PWD/$w/$w" ~/.local/bin/$w; done
 ln -s "$PWD/hyprbt" ~/.config/quickshell/hyprbt
 ```
 
@@ -89,10 +91,12 @@ exec-once = hyprmenu --daemon
 exec-once = qs -c hyprbt -d
 ```
 
-Keybindings for the pickers, in `~/.config/hypr/bindings.conf` (or wherever your binds live):
+Keybindings for the theme picker and the start menu, in `~/.config/hypr/bindings.conf` (or wherever your binds live):
 
 ```ini
 bindd = SUPER CTRL SHIFT, SPACE, Pick theme, exec, hyprtheme
+bindd = SUPER, SPACE, Start menu, exec, hyprmenu
+bindd = SUPER ALT, SPACE, Start menu (Omarchy menu), exec, hyprmenu menu
 ```
 
 ## Secrets stay out
