@@ -1,0 +1,90 @@
+/* hyprmenu: only what is specific to the start menu.
+ * Colours, buttons, entry, sections and the key-hint footer come from the shared hypr-ui
+ * stylesheet, which follows the Omarchy theme live (hypr_ui.load_css). */
+
+/* a light veil over the desktop; it takes no clicks */
+.dim { background: alpha(black, 0.15); }
+
+.startmenu {
+  background: alpha(@bg, 0.96);
+  border: 1px solid @frame;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px alpha(black, 0.38);
+}
+
+.menu-header { padding: 12px 14px; border-bottom: 1px solid @line; }
+.menu-header entry { background: @surface; min-height: 22px; font-size: 13px; }
+.menu-header entry image { color: @muted; }
+.menu-header .app-icon { min-width: 28px; min-height: 28px; font-size: 13px; font-weight: bold; }
+
+.section { color: @muted; font-size: 10px; letter-spacing: 1px; }
+.section-meta { color: @faint; font-size: 10px; }
+
+.apps { padding: 14px; }
+button.tile {
+  background: @surface;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  box-shadow: none;
+  padding: 6px 6px 9px;
+  min-height: 0;
+}
+button.tile:hover { border-color: @line; }
+button.tile.sel { border-color: @blue; background: mix(@surface, @blue, 0.14); }
+button.tile .num { color: @faint; font-size: 9px; }
+button.tile .pin { color: @blue; font-size: 9px; }
+button.tile .name { font-size: 12px; }
+button.tile .meta { color: @faint; font-size: 10px; }
+
+button.chip {
+  background: none;
+  border: 1px solid @line;
+  border-radius: 6px;
+  box-shadow: none;
+  padding: 3px 9px;
+  min-height: 0;
+}
+button.chip label { color: @muted; font-size: 11px; }
+button.chip:hover { border-color: @faint; }
+button.chip:hover label { color: @fg; }
+
+.side {
+  background: mix(@bg, @surface, 0.45);
+  border-left: 1px solid @line;
+  padding: 14px 10px;
+}
+.side button.link { padding: 0; min-height: 0; font-size: 11px; }
+
+button.mrow {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  box-shadow: none;
+  padding: 0 8px;
+  min-height: 30px;
+}
+button.mrow:hover { background: @raised; }
+button.mrow.sel { border-color: @blue; background: alpha(@blue, 0.14); }
+button.mrow image { color: @muted; }
+button.mrow .t { font-size: 12px; }
+button.mrow .path { color: @faint; font-size: 11px; }
+button.mrow .k { color: @faint; font-size: 10px; }
+button.mrow .chev { color: @faint; }
+.badge.widget { background: alpha(@green, 0.2); color: @green; font-size: 9px; padding: 0 5px; border-radius: 4px; }
+
+.results { padding: 10px 14px; }
+.res-section { margin: 8px 2px 4px; }
+.empty { color: @muted; padding: 24px 6px; }
+
+.startmenu .footer { padding: 8px 14px; border-top: 1px solid @line; }
+.startmenu .footer .hint { color: @muted; font-size: 10.5px; }
+.startmenu .footer .key { font-size: 10px; }
+button.power { min-height: 26px; padding: 0 9px; }
+button.power label, button.power image { color: @muted; font-size: 11px; }
+button.power:hover label, button.power:hover image { color: @fg; }
+button.power.danger:hover { border-color: @red; }
+button.power.danger:hover label, button.power.danger:hover image { color: @red; }
+.status { color: @muted; font-size: 11px; }
+.status.hot { color: @orange; font-weight: bold; }
+
+scrollbar slider { background: alpha(@fg, 0.25); min-width: 4px; border-radius: 3px; }

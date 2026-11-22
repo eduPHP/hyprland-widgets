@@ -20,6 +20,7 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 | 🎵 | [`hyprspot`](hyprspot) | Spotify mini-player with playlists and search, driven by Spotify's headless Connect client | GTK4 + gtk4-layer-shell, Spotify Soloist |
 | 🎨 | [`hypr-ui`](hypr-ui) | the shared design system: `tokens.json` → GTK CSS + Python helpers + a QML singleton | Python build script |
 | 🖼️ | [`hyprtheme`](hyprtheme) | theme picker: previews a theme and its wallpapers inside itself, fuzzy search, dark/light/favorite filters, undo after applying | GTK4 + gtk4-layer-shell |
+| 🚀 | [`hyprmenu`](hyprmenu) | start menu on Super+Space: most-used apps by focus time, the Omarchy menu, search over both, power row | GTK4 + gtk4-layer-shell |
 | 🖌️ | [`omarchy-theme`](omarchy-theme) | Omarchy's themes without Omarchy: one command restyles the wallpaper, borders, waybar, mako, fuzzel, terminal, btop, Neovim and every widget here, live | Python |
 
 ## Gallery
@@ -83,6 +84,7 @@ exec-once = sound-widget --daemon
 exec-once = hyprcal --daemon
 exec-once = hyprpower --daemon
 exec-once = hyprtheme --daemon
+exec-once = hyprmenu --daemon
 exec-once = qs -c hyprbt -d
 ```
 
