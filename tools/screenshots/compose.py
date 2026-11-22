@@ -11,6 +11,7 @@ and its shadow margin are dropped), given rounded corners and a soft shadow, and
 backdrop -> docs/screenshots/<name>.png. A few of them are also laid side by side in docs/hero.png.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -115,7 +116,8 @@ def main(raw: Path) -> None:
         single(cards[f.stem]).convert("RGB").save(OUT / f.name, optimize=True)
         print("docs/screenshots/" + f.name, cards[f.stem].size)
 
-    spot = ROOT / "hyprspot" / "docs" / "screenshots"
+    # hyprspot lives in its own repo; use a checkout next to this one (or $HYPRSPOT_DIR)
+    spot = Path(os.environ.get("HYPRSPOT_DIR") or ROOT.parent / "hyprspot") / "docs" / "screenshots"
     hero = [cards[k] for k in ("wifi", "sound", "hyprcal", "power") if k in cards]
     bt = cards.get("bt")
     if bt is not None and (spot / "compact.png").exists():
