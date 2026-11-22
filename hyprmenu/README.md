@@ -15,8 +15,9 @@ A start menu in the hypr-ui look. **Super+Space** opens it with your most-used a
   matches, Enter runs what you typed as a shell command. "Apps" in the menu lists every app.
 - **Power row:** Lock, Suspend, Restart, Shut down. Restart, Shut down and Log out ask for a second
   press.
-- **Closes when you click away.** A light veil; a click outside the card closes the menu and focuses
-  the window under the cursor, and clicking a window on another monitor closes it too. Just moving
+- **Closes when you click away.** A light veil; a click outside the card closes the menu and goes
+  through to what's under it (replayed on a virtual mouse, so `/dev/uinput` must be writable;
+  without it the click only closes), and clicking a window on another monitor closes it too. Just moving
   the mouse off the card doesn't: with `follow_mouse = 1` the menu holds it at 2 while open and gives
   your value back when it closes, or when the daemon starts again after dying with the menu open.
 

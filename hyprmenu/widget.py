@@ -89,6 +89,41 @@ def refocus_under_cursor() -> bool:
     return False
 
 
+class Replayer:
+    """Passes a click on the veil through to what's under it: once the menu is gone, the same button is
+    pressed again on a virtual mouse (uinput). The device is made once, at daemon start, because the
+    compositor takes a moment to pick up a new one. Without /dev/uinput access the click only closes."""
+
+    def __init__(self):
+        self.ui = None
+        try:
+            from evdev import UInput
+            from evdev import ecodes as e
+
+            self.e = e
+            self.ui = UInput({e.EV_KEY: [e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE], e.EV_REL: [e.REL_X, e.REL_Y]},
+                             name="hyprmenu click-through")
+        except Exception as ex:  # no python-evdev, or no access to /dev/uinput
+            log("click-through off:", ex)
+
+    def click(self, button: int) -> bool:
+        if self.ui:
+            e = self.e
+            code = {1: e.BTN_LEFT, 2: e.BTN_MIDDLE, 3: e.BTN_RIGHT}.get(button, e.BTN_LEFT)
+            try:
+                self.ui.write(e.EV_KEY, code, 1)
+                self.ui.syn()
+                self.ui.write(e.EV_KEY, code, 0)
+                self.ui.syn()
+            except OSError as ex:
+                log("click-through:", ex)
+        return False
+
+    def close(self):
+        if self.ui:
+            self.ui.close()
+
+
 def label(text="", *classes, xalign=0.0, hexpand=False, ellipsize=0):
     w = Gtk.Label(label=text, xalign=xalign, hexpand=hexpand)
     for c in classes:
@@ -296,7 +331,8 @@ class Menu(Gtk.ApplicationWindow):
         dim = Gtk.Box(hexpand=True, vexpand=True)
         dim.add_css_class("dim")
         veil_click = Gtk.GestureClick(button=0)
-        veil_click.connect("pressed", self._veil_clicked)
+        veil_click.connect("pressed", lambda g, *_: g.set_state(Gtk.EventSequenceState.CLAIMED))
+        veil_click.connect("released", self._veil_clicked)
         dim.add_controller(veil_click)
         self.card = self._build_card()
         root = Gtk.Overlay()
@@ -378,12 +414,20 @@ class Menu(Gtk.ApplicationWindow):
         return card
 
     def _veil_clicked(self, gesture, _n, _x, _y):
-        """A click outside the card closes the menu; the window under the cursor then takes the focus."""
-        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        """A click outside the card closes the menu, then goes through to what's under the cursor (on
+        release, so the replayed press isn't fighting a button still held down)."""
+        button = gesture.get_current_button()
         log("click outside the card, closing")
         self.close_menu()
-        if not WINDOWED:  # follow_mouse is back to the user's value: a warp in place focuses what's under it
-            GLib.timeout_add(60, refocus_under_cursor)
+        if WINDOWED:
+            return
+
+        def through():
+            refocus_under_cursor()  # pointer focus back on the window under the cursor
+            GLib.timeout_add(30, self.app.replayer.click, button)
+            return False
+
+        GLib.timeout_add(40, through)  # let the compositor unmap the menu first
 
     # ----- apps side -----
 
@@ -810,6 +854,7 @@ class Daemon(Gtk.Application):
                          daemon=True).start()
         GLib.timeout_add_seconds(SAVE_S, lambda: self.usage.save() or True)
         self.menu = Menu(self)
+        self.replayer = Replayer() if not WINDOWED else None
         self._serve()
         log("daemon started, python", sys.version.split()[0], "gtk",
             f"{Gtk.get_major_version()}.{Gtk.get_minor_version()}",
@@ -827,6 +872,8 @@ class Daemon(Gtk.Application):
         self.sock_path.unlink(missing_ok=True)
         OPEN_FLAG.unlink(missing_ok=True)
         release_focus()
+        if self.replayer:
+            self.replayer.close()
         Gtk.Application.do_shutdown(self)
 
 
