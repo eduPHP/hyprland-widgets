@@ -15,10 +15,10 @@ A start menu in the hypr-ui look. **Super+Space** opens it with your most-used a
   matches, Enter runs what you typed as a shell command. "Apps" in the menu lists every app.
 - **Power row:** Lock, Suspend, Restart, Shut down. Restart, Shut down and Log out ask for a second
   press.
-- **Doesn't take over the screen.** A light veil, clicks outside the card reach your windows, and
-  the menu closes as soon as another window takes the focus. Hovering a window doesn't count: with
-  `follow_mouse = 1` the menu holds it at 2 while open (only a click moves the focus) and gives your
-  value back when it closes, or when the daemon starts again after dying with the menu open.
+- **Closes when you click away.** A light veil; a click outside the card closes the menu and focuses
+  the window under the cursor, and clicking a window on another monitor closes it too. Just moving
+  the mouse off the card doesn't: with `follow_mouse = 1` the menu holds it at 2 while open and gives
+  your value back when it closes, or when the daemon starts again after dying with the menu open.
 
 ## Keys
 

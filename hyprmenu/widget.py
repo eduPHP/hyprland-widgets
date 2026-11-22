@@ -16,7 +16,6 @@ import sys
 import threading
 from pathlib import Path
 
-import cairo
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -81,6 +80,13 @@ def release_focus() -> None:
         hyprctl("keyword", "input:follow_mouse", cur)
         log("follow_mouse restored to", cur)
     FOLLOW_SAVED.unlink(missing_ok=True)
+
+
+def refocus_under_cursor() -> bool:
+    x, _, y = hyprctl("cursorpos").strip().partition(", ")
+    if x.isdigit() and y.isdigit():
+        hyprctl("dispatch", "movecursor", x, y)
+    return False
 
 
 def label(text="", *classes, xalign=0.0, hexpand=False, ellipsize=0):
@@ -270,10 +276,10 @@ class Menu(Gtk.ApplicationWindow):
             hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
             for e in (Layer.Edge.TOP, Layer.Edge.BOTTOM, Layer.Edge.LEFT, Layer.Edge.RIGHT):
                 Layer.set_anchor(self, e, True)  # whole screen, below waybar (its exclusive zone is kept)
-            # clicks outside the card reach the desktop; clicking a window takes the focus away,
-            # and the menu closes when it loses focus
+            # the veil takes the clicks around the card: a click there closes the menu and focuses the
+            # window under the cursor. On another monitor, clicking a window takes the focus away, and
+            # the menu closes when it loses focus
             Layer.set_keyboard_mode(self, Layer.KeyboardMode.ON_DEMAND)
-            self.connect("realize", lambda w: w.get_surface().connect("layout", self._clip_input))
 
         self.root_node = mn.tree()
         self.stack: list[mn.Node] = [self.root_node]
@@ -289,6 +295,9 @@ class Menu(Gtk.ApplicationWindow):
 
         dim = Gtk.Box(hexpand=True, vexpand=True)
         dim.add_css_class("dim")
+        veil_click = Gtk.GestureClick(button=0)
+        veil_click.connect("pressed", self._veil_clicked)
+        dim.add_controller(veil_click)
         self.card = self._build_card()
         root = Gtk.Overlay()
         root.set_child(dim)
@@ -368,14 +377,13 @@ class Menu(Gtk.ApplicationWindow):
         card.set_size_request(CARD_W, CARD_H)
         return card
 
-    def _clip_input(self, surface, width, height):
-        """Only the card takes input; the veil around it passes clicks to the desktop."""
-        a = self.card.get_allocation()
-        if a.width <= 1:
-            a = Gdk.Rectangle()
-            a.x, a.y = (width - CARD_W) // 2, (height - CARD_H) // 2
-            a.width, a.height = CARD_W, CARD_H
-        surface.set_input_region(cairo.Region(cairo.RectangleInt(a.x, a.y, a.width, a.height)))
+    def _veil_clicked(self, gesture, _n, _x, _y):
+        """A click outside the card closes the menu; the window under the cursor then takes the focus."""
+        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        log("click outside the card, closing")
+        self.close_menu()
+        if not WINDOWED:  # follow_mouse is back to the user's value: a warp in place focuses what's under it
+            GLib.timeout_add(60, refocus_under_cursor)
 
     # ----- apps side -----
 
