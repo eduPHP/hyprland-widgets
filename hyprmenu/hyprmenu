@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""hyprmenu: start menu for Hyprland (hypr-ui look). Kept free of GTK imports so binds stay fast.
+
+  hyprmenu                  toggle the menu, apps side selected (Super+Space)
+  hyprmenu menu             toggle the menu, Omarchy menu side selected (Super+Alt+Space)
+  hyprmenu open | close     open if closed / close if open (close never starts the daemon)
+  hyprmenu stats            print the most-used ranking and pins
+  hyprmenu quit             stop the daemon
+  hyprmenu --daemon         run the resident GTK process (Hyprland exec-once); it also measures
+                            app usage, so keep it running
+"""
+
+import os
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(os.path.realpath(__file__)).parent
+sys.path.insert(0, str(HERE))
+RUN = Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}")
+SOCK = RUN / "hyprmenu.sock"
+LAYER_SHELL = "/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0"
+
+
+def send(cmd: str) -> bool:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.connect(str(SOCK))
+        s.sendall(cmd.encode())
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def start_daemon():
+    subprocess.Popen([sys.executable, os.path.realpath(__file__), "--daemon"], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def daemon():
+    # gtk4-layer-shell must be loaded before libwayland-client (HYPRMENU_WINDOWED=1: a plain window, for testing)
+    if not os.environ.get("HYPRMENU_WINDOWED"):
+        # layer shell only exists on Wayland: never fall back to XWayland, where the menu would be a
+        # plain window in a corner (a shell without WAYLAND_DISPLAY, e.g. ssh, starting the daemon)
+        if "HYPRMENU_SESSION_GDK_BACKEND" not in os.environ:  # what launched apps get back
+            os.environ["HYPRMENU_SESSION_GDK_BACKEND"] = os.environ.get("GDK_BACKEND", "")
+        os.environ["GDK_BACKEND"] = "wayland"
+        if not os.environ.get("WAYLAND_DISPLAY"):
+            socks = sorted(RUN.glob("wayland-[0-9]"))
+            if not socks:
+                sys.exit("hyprmenu: no Wayland display (WAYLAND_DISPLAY is unset)")
+            os.environ["WAYLAND_DISPLAY"] = socks[0].name
+    if not os.environ.get("HYPRMENU_WINDOWED") and LAYER_SHELL not in os.environ.get("LD_PRELOAD", ""):
+        os.environ["LD_PRELOAD"] = ":".join(filter(None, [LAYER_SHELL, os.environ.get("LD_PRELOAD")]))
+        os.execv(sys.executable, [sys.executable, os.path.realpath(__file__), *sys.argv[1:]])
+    if send("ping"):
+        sys.exit("hyprmenu daemon already running")
+    import widget
+
+    widget.main(SOCK)
+
+
+def stats():
+    import time
+
+    import usage
+
+    send("save")
+    time.sleep(0.2)
+    u = usage.Usage()
+    print(f"{'hours':>7}  app   (focus time, 7-day half-life)")
+    for key, secs in u.ranked()[:25]:
+        print(f"{secs / 3600:7.2f}  {key}")
+    print("pins:", ", ".join(u.pins()) or "none")
+
+
+def main():
+    args = sys.argv[1:]
+    if args[:1] == ["--daemon"]:
+        return daemon()
+    if args in (["-h"], ["--help"], ["help"]):
+        return print(__doc__)
+    cmd = args[:1] or ["toggle"]
+    if cmd[0] == "stats":
+        return stats()
+    if cmd[0] not in ("toggle", "menu", "open", "close", "quit"):
+        sys.exit(__doc__)
+    if send(cmd[0]) or cmd[0] in ("close", "quit"):
+        return
+    start_daemon()
+    for _ in range(60):
+        time.sleep(0.1)
+        if send(cmd[0]):
+            return
+    sys.exit("hyprmenu daemon did not start")
+
+
+if __name__ == "__main__":
+    main()

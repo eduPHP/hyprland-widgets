@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# hyprmenu-pkg: the Install / Remove / Update entries of hyprmenu, for Ubuntu (apt, snap, flatpak).
+# Runs in a terminal. Picks with fzf when it's installed, otherwise asks for a name.
+#   hyprmenu-pkg install | remove | update | snap | snap-remove | flatpak
+set -uo pipefail
+
+pick() {  # pick PROMPT  (choices on stdin) -> names on stdout
+  if command -v fzf >/dev/null; then
+    fzf --multi --prompt "$1> " --height 90% --reverse
+  else
+    cat >/dev/null
+    read -rp "$1 (space-separated): " names
+    printf '%s\n' $names
+  fi
+}
+
+case ${1:-} in
+  install)
+    mapfile -t p < <(apt-cache pkgnames | sort | pick "apt install")
+    ((${#p[@]})) && sudo apt install "${p[@]}" ;;
+  remove)
+    mapfile -t p < <(apt-mark showmanual | sort | pick "apt remove")
+    ((${#p[@]})) && sudo apt remove "${p[@]}" ;;
+  update)
+    sudo apt update && sudo apt full-upgrade
+    command -v snap >/dev/null && sudo snap refresh
+    command -v flatpak >/dev/null && flatpak update -y
+    ;;
+  snap)
+    read -rp "snap to install: " s
+    [[ -n $s ]] && sudo snap install "$s" ;;
+  snap-remove)
+    mapfile -t p < <(snap list 2>/dev/null | awk 'NR>1 {print $1}' | pick "snap remove")
+    ((${#p[@]})) && sudo snap remove "${p[@]}" ;;
+  flatpak)
+    read -rp "flatpak search: " q
+    [[ -z $q ]] && exit 0
+    mapfile -t p < <(flatpak search --columns=application "$q" | pick "flatpak install")
+    ((${#p[@]})) && flatpak install -y flathub "${p[@]}" ;;
+  *)
+    sed -n '2,4p' "$0"; exit 2 ;;
+esac
