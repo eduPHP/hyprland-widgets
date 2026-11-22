@@ -342,7 +342,7 @@ class WallThumb(Gtk.DrawingArea):
 
 class Picker(Gtk.ApplicationWindow):
     def __init__(self, app: "App"):
-        super().__init__(application=app, title="hyprtheme", resizable=False)
+        super().__init__(application=app, title="hyprtheme")  # resizable: the compositor sizes it to the whole screen
         self.app = app
         if WINDOWED:
             self.set_default_size(1440, 900)
