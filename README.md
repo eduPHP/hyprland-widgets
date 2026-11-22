@@ -61,12 +61,13 @@ This runs on Ubuntu 26.04 with Hyprland 0.53 and waybar, set up in the style of
 
 ```bash
 sudo apt install python3-gi gir1.2-gtk-4.0 libgtk4-layer-shell0 gir1.2-gtk4layershell-1.0 \
-  network-manager pipewire wireplumber upower power-profiles-daemon wlsunset
+  network-manager pipewire wireplumber upower power-profiles-daemon wlsunset webp-pixbuf-loader
 ```
 
 You also need [JetBrainsMono Nerd Font](https://www.nerdfonts.com/font-downloads). hyprbt needs Quickshell (`hyprbt/build-quickshell.sh` builds it).
 hyprspot has its own [setup](hyprspot/README.md).
 For the themes, run [`omarchy-theme/install.sh`](omarchy-theme) and wire your apps as its README shows.
+It also links the [`hyprtheme`](hyprtheme) picker (`webp-pixbuf-loader` lets it show Omarchy's WebP wallpapers).
 
 ```bash
 git clone https://github.com/eduPHP/hyprland-widgets.git ~/code/hyprland-widgets
@@ -86,6 +87,12 @@ exec-once = hyprpower --daemon
 exec-once = hyprtheme --daemon
 exec-once = hyprmenu --daemon
 exec-once = qs -c hyprbt -d
+```
+
+Keybindings for the pickers, in `~/.config/hypr/bindings.conf` (or wherever your binds live):
+
+```ini
+bindd = SUPER CTRL SHIFT, SPACE, Pick theme, exec, hyprtheme
 ```
 
 ## Secrets stay out
