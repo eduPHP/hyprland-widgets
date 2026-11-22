@@ -3,7 +3,10 @@
 
     tools/screenshots/compose.py RAW_DIR
 
-Each RAW_DIR/<name>.png from capture.sh is cut to its 1px frame (the desktop behind the popover
+Each RAW_DIR/<name>.png from capture.sh is cut to its 1px frame. A full-screen capture of an
+overlay card (hyprtheme, hyprmenu: `grim RAW_DIR/<name>.png`) comes with RAW_DIR/<name>.box holding
+the card's outer box in screen pixels, "x,y,w,h", and is cut to that instead.
+Either way the result (the desktop behind the popover
 and its shadow margin are dropped), given rounded corners and a soft shadow, and put on a Tokyo Night
 backdrop -> docs/screenshots/<name>.png. A few of them are also laid side by side in docs/hero.png.
 """
@@ -102,7 +105,13 @@ def main(raw: Path) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     cards = {}
     for f in sorted(raw.glob("*.png")):
-        cards[f.stem] = rounded(trim_to_frame(Image.open(f)))
+        box = f.with_suffix(".box")
+        if box.exists():
+            x, y, w, h = (int(v) for v in box.read_text().replace(" ", "").split(","))
+            card = Image.open(f).convert("RGB").crop((x, y, x + w, y + h))
+        else:
+            card = trim_to_frame(Image.open(f))
+        cards[f.stem] = rounded(card)
         single(cards[f.stem]).convert("RGB").save(OUT / f.name, optimize=True)
         print("docs/screenshots/" + f.name, cards[f.stem].size)
 
