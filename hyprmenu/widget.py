@@ -8,6 +8,7 @@ search over both. The daemon also measures which apps you use (usage.py), so kee
 from __future__ import annotations
 
 import getpass
+import json
 import os
 import socket
 import subprocess
@@ -35,6 +36,7 @@ import usage as us  # noqa: E402
 
 RUN = Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}")
 OPEN_FLAG = RUN / "hyprmenu.open"
+FOLLOW_SAVED = RUN / "hyprmenu.follow_mouse"  # the user's input:follow_mouse while the menu holds it at 2
 CARD_W, CARD_H = 880, 500
 COLS, GRID_N = 4, 8
 CONFIRM_S = 3
@@ -43,6 +45,42 @@ SAVE_S = 60
 
 def log(*parts) -> None:
     print(GLib.DateTime.new_now_local().format("%H:%M:%S"), "hyprmenu:", *parts, file=sys.stderr, flush=True)
+
+
+def hyprctl(*args: str) -> str:
+    try:
+        return subprocess.run(["hyprctl", *args], capture_output=True, text=True, timeout=2).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def hold_focus() -> None:
+    """With follow_mouse = 1 Hyprland moves the keyboard to whatever window the cursor passes over, so
+    leaving the card took the focus and closed the menu. While it is open, follow_mouse = 2: hovering
+    a window no longer focuses it, clicking one still does (and that closes the menu, as before)."""
+    if WINDOWED or FOLLOW_SAVED.exists():
+        return
+    try:
+        cur = int(json.loads(hyprctl("-j", "getoption", "input:follow_mouse") or "{}")["int"])
+    except (ValueError, KeyError, TypeError):
+        return
+    if cur != 1:
+        return
+    FOLLOW_SAVED.write_text(str(cur))
+    hyprctl("keyword", "input:follow_mouse", "2")
+    log("follow_mouse 1 -> 2 while open")
+
+
+def release_focus() -> None:
+    """Give the user's follow_mouse back (also at daemon start, in case it died with the menu open)."""
+    try:
+        cur = FOLLOW_SAVED.read_text().strip()
+    except OSError:
+        return
+    if cur.isdigit():
+        hyprctl("keyword", "input:follow_mouse", cur)
+        log("follow_mouse restored to", cur)
+    FOLLOW_SAVED.unlink(missing_ok=True)
 
 
 def label(text="", *classes, xalign=0.0, hexpand=False, ellipsize=0):
@@ -599,6 +637,7 @@ class Menu(Gtk.ApplicationWindow):
         self.fill_menu()
         self.entry.set_text("")
         self.refresh_view()
+        hold_focus()
         self.present()
         self.entry.grab_focus()
         OPEN_FLAG.touch()
@@ -608,6 +647,7 @@ class Menu(Gtk.ApplicationWindow):
             GLib.source_remove(self.confirm[1])
             self.confirm = None
         self.set_visible(False)
+        release_focus()
         OPEN_FLAG.unlink(missing_ok=True)
         self.app.usage.save()
 
@@ -778,6 +818,7 @@ class Daemon(Gtk.Application):
         self.usage.save()
         self.sock_path.unlink(missing_ok=True)
         OPEN_FLAG.unlink(missing_ok=True)
+        release_focus()
         Gtk.Application.do_shutdown(self)
 
 
@@ -785,6 +826,7 @@ def main(sock: Path):
     import signal
 
     OPEN_FLAG.unlink(missing_ok=True)
+    release_focus()
     app = Daemon(sock)
     for sig in (signal.SIGTERM, signal.SIGINT):
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, sig, lambda *_: app.quit() or False)

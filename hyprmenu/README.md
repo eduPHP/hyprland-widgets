@@ -16,7 +16,9 @@ A start menu in the hypr-ui look. **Super+Space** opens it with your most-used a
 - **Power row:** Lock, Suspend, Restart, Shut down. Restart, Shut down and Log out ask for a second
   press.
 - **Doesn't take over the screen.** A light veil, clicks outside the card reach your windows, and
-  the menu closes as soon as another window takes the focus.
+  the menu closes as soon as another window takes the focus. Hovering a window doesn't count: with
+  `follow_mouse = 1` the menu holds it at 2 while open (only a click moves the focus) and gives your
+  value back when it closes, or when the daemon starts again after dying with the menu open.
 
 ## Keys
 
