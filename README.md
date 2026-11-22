@@ -17,7 +17,7 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 | 📅 | [`hyprcal`](hyprcal) | clock, month grid with week numbers, agenda, Google Calendar (OAuth or secret iCal links) and Calendly, event reminders | GTK4 + gtk4-layer-shell |
 | 🔋 | [`hyprpower`](hyprpower) | battery health and history, apps draining it, power profiles, charge modes; brightness, keyboard light, night light, monitor extend/mirror/placement/scale with a 10 s keep-or-revert | GTK4 + gtk4-layer-shell, `upower`, `powerprofilesctl`, `hyprctl` |
 | 🎧 | [`hyprbt`](hyprbt) | bluetooth power, scan, pair (with its own BlueZ agent), connect, battery levels | [Quickshell](https://quickshell.org) (QML) |
-| 🎵 | [`hyprspot`](hyprspot) | Spotify mini-player with playlists and search, driven by Spotify's headless Connect client | GTK4 + gtk4-layer-shell, Spotify Soloist |
+| 🎵 | [`hyprspot`](https://github.com/eduPHP/hyprspot) | Spotify mini-player with playlists and search, driven by Spotify's headless Connect client | GTK4 + gtk4-layer-shell, Spotify Soloist |
 | 🎨 | [`hypr-ui`](hypr-ui) | the shared design system: `tokens.json` → GTK CSS + Python helpers + a QML singleton | Python build script |
 | 🖼️ | [`hyprtheme`](hyprtheme) | theme picker: previews a theme and its wallpapers inside itself, fuzzy search, dark/light/favorite filters, undo after applying | GTK4 + gtk4-layer-shell |
 | 🚀 | [`hyprmenu`](hyprmenu) | start menu on Super+Space: most-used apps by focus time, the Omarchy menu, search over both, power row | GTK4 + gtk4-layer-shell |
@@ -42,7 +42,7 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 <tr>
 <td><img src="docs/screenshots/sound.png" alt="sound widget: output and input, level meter, output devices, now playing and per-app volume"></td>
 <td><img src="docs/screenshots/bt.png" alt="hyprbt: bluetooth toggle, scan, paired headphones"></td>
-<td><img src="hyprspot/docs/screenshots/expanded-playlists.png" alt="hyprspot expanded on the playlists tab"></td>
+<td><img src="https://raw.githubusercontent.com/eduPHP/hyprspot/main/docs/screenshots/expanded-playlists.png" alt="hyprspot expanded on the playlists tab"></td>
 </tr>
 </table>
 
@@ -69,7 +69,7 @@ sudo apt install python3-gi gir1.2-gtk-4.0 libgtk4-layer-shell0 gir1.2-gtk4layer
 ```
 
 You also need [JetBrainsMono Nerd Font](https://www.nerdfonts.com/font-downloads). hyprbt needs Quickshell (`hyprbt/build-quickshell.sh` builds it).
-hyprspot has its own [setup](hyprspot/README.md).
+hyprspot lives in its own repository, [eduPHP/hyprspot](https://github.com/eduPHP/hyprspot), with its own setup.
 For the themes, run [`omarchy-theme/install.sh`](omarchy-theme) and wire your apps as its README shows.
 It also links the [`hyprtheme`](hyprtheme) picker (`webp-pixbuf-loader` lets it show Omarchy's WebP wallpapers).
 

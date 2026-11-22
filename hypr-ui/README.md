@@ -17,7 +17,7 @@ keep frames and shadows identical everywhere.
 | **hyprpower** | battery details, power profile, Dell charge mode, brightness, keyboard light, monitor layout (extend/mirror/placement/scale) | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprpower --daemon`) | `~/code/hyprland-widgets/hyprpower` | waybar `battery` click, `SUPER CTRL P` | popover (`hyprpower`), toast (`hyprpower-toast`), identify (`hyprpower-identify`) | yes |
 | **hyprtheme** | theme picker with in-picker preview, wallpapers and undo | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprtheme --daemon`) | `~/code/hyprland-widgets/hyprtheme` | `SUPER CTRL SHIFT SPACE` (`omarchy-theme-menu`) | full-screen picker (`hyprtheme`), undo toast (`hyprtheme-toast`) | yes, painted in the highlighted theme while browsing |
 | **hyprmenu** | start menu: most-used apps (by focus time), the Omarchy menu, search over both, power row | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprmenu --daemon`, also measures app usage) | `~/code/hyprland-widgets/hyprmenu` | `SUPER SPACE` (apps), `SUPER ALT SPACE` (menu) | overlay card (`hyprmenu`) | yes |
-| **hyprspot** | Spotify mini player | GTK4 (Python) | `~/code/hyprland-widgets/hyprspot` | always on, bottom-right | pill + expanded card (`hyprspot`, Hyprland blur rule) | no, separate project with its own look |
+| **hyprspot** | Spotify mini player | GTK4 (Python) | `~/code/hyprspot` ([own repo](https://github.com/eduPHP/hyprspot)) | always on, bottom-right | pill + expanded card (`hyprspot`, Hyprland blur rule) | no, separate project with its own look |
 
 ## Layout
 
@@ -77,7 +77,7 @@ skill/SKILL.md         Claude Code skill (/hypr-ui), linked at ~/.claude/skills/
    `$XDG_RUNTIME_DIR/hypr-ui-capture` until it closes; meanwhile every widget steps down
    to TOP, under the overlay. GTK: set the layer with `hypr_ui.layer(win, Layer, Layer.Layer.OVERLAY)`
    instead of `Layer.set_layer`. Quickshell: the `capturing` FileView in `hyprbt/shell.qml`.
-   hyprspot has the same watcher in `hyprspot/ui/window.py`.
+   hyprspot ([own repo](https://github.com/eduPHP/hyprspot)) has the same watcher in `hyprspot/ui/window.py`.
 
 ## Components
 
