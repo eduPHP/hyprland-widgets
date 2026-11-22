@@ -162,7 +162,9 @@ def tree() -> Node:
             N("hyprland-widgets", "folder-download-symbolic", term(f"git -C {HERE.parent} pull --ff-only"),
               needs=TERM),
         ]),
-        N("About", "help-about-symbolic", term("fastfetch"), needs="fastfetch"),
+        N("About", "help-about-symbolic",
+          term("fastfetch") if shutil.which("fastfetch")
+          else term("hostnamectl; echo; uname -srm; uptime -p"), needs=TERM),
         N("System", "system-shutdown-symbolic", children=[
             N("Lock", "system-lock-screen-symbolic", "omarchy-system-lock", keys="super ^ L"),
             N("Suspend", "weather-clear-night-symbolic", "systemctl suspend"),
