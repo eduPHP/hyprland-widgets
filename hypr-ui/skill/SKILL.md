@@ -47,11 +47,7 @@ widgets to it.
 4. **One popover at a time:** while open, keep `$XDG_RUNTIME_DIR/<name>.open`; as it
    opens, run `hypr-ui-solo <name>`; give it a close command and add a block for it
    in `bin/hypr-ui-solo`.
-5. **Under screenshots:** set the layer with `hypr_ui.layer(window, Layer, Layer.Layer.OVERLAY)`
-   (never `Layer.set_layer` for OVERLAY), so the surface steps down to TOP while
-   Flameshot's overlay is up (`$XDG_RUNTIME_DIR/hypr-ui-capture`). Quickshell: copy the
-   `capturing` FileView and layer binding from `hyprbt/shell.qml`.
-6. **Look:** lowercase titles, JetBrainsMono Nerd Font everywhere, Nerd Font glyphs
+5. **Look:** lowercase titles, JetBrainsMono Nerd Font everywhere, Nerd Font glyphs
    for icons, a footer with `esc close` style key hints.
 
 ## New GTK4 widget
@@ -61,7 +57,7 @@ sys.path.insert(0, os.path.expanduser("~/.config/hypr-ui/gtk"))
 import hypr_ui
 
 hypr_ui.load_css(HERE / "style.css")     # in Application.do_startup; style.css = this widget's rules only
-hypr_ui.layer(window, Layer, Layer.Layer.OVERLAY)  # steps down under Flameshot
+Layer.set_layer(window, Layer.Layer.OVERLAY)
 hypr_ui.popover(window, Layer)           # or hypr_ui.toast(window, Layer, bottom=88)
 root.add_css_class("popover")            # or "toast"
 root.set_size_request(360 + 2 * hypr_ui.MARGIN, -1)

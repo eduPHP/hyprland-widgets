@@ -16,17 +16,6 @@ ShellRoot {
     property bool open: false
     property double closedAt: 0
 
-    // hypr-ui: while a screenshot overlay is up (flameshot-gui keeps this flag),
-    // drop from OVERLAY to TOP so the fullscreen overlay covers the popover.
-    property bool capturing: false
-    FileView {
-        path: Quickshell.env("XDG_RUNTIME_DIR") + "/hypr-ui-capture"
-        watchChanges: true
-        printErrors: false
-        onFileChanged: reload()
-        onLoaded: root.capturing = true
-        onLoadFailed: root.capturing = false
-    }
     readonly property var adapter: Bluetooth.defaultAdapter
     readonly property bool powered: adapter !== null && adapter.enabled
     readonly property bool blocked: adapter !== null && adapter.state === BluetoothAdapterState.Blocked
@@ -133,7 +122,7 @@ ShellRoot {
         mask: Region { item: card }
 
         WlrLayershell.namespace: "hyprbt"
-        WlrLayershell.layer: root.capturing ? WlrLayer.Top : WlrLayer.Overlay
+        WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
         HyprlandFocusGrab {

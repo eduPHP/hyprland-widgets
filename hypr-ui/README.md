@@ -70,15 +70,6 @@ skill/SKILL.md         Claude Code skill (/hypr-ui), linked at ~/.claude/skills/
    | hyprpower | `hyprpower.open` | `hyprpower close` |
    | hyprtheme | `hyprtheme.open` | `hyprtheme close` |
 
-6. **Screenshots cover the widgets.** Widgets live on the OVERLAY layer, which Hyprland
-   draws above even fullscreen windows, so Flameshot's overlay used to sit *under* them.
-   `~/.local/bin/flameshot-gui` waits for the overlay window (the grab is already taken, so
-   the widgets are in the picture), makes it real fullscreen and keeps
-   `$XDG_RUNTIME_DIR/hypr-ui-capture` until it closes; meanwhile every widget steps down
-   to TOP, under the overlay. GTK: set the layer with `hypr_ui.layer(win, Layer, Layer.Layer.OVERLAY)`
-   instead of `Layer.set_layer`. Quickshell: the `capturing` FileView in `hyprbt/shell.qml`.
-   hyprspot ([own repo](https://github.com/eduPHP/hyprspot)) has the same watcher in `hyprspot/ui/window.py`.
-
 ## Components
 
 | | GTK class | Quickshell |

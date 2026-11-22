@@ -308,7 +308,7 @@ class Menu(Gtk.ApplicationWindow):
         else:
             Layer.init_for_window(self)
             Layer.set_namespace(self, "hyprmenu")
-            hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+            Layer.set_layer(self, Layer.Layer.OVERLAY)
             for e in (Layer.Edge.TOP, Layer.Edge.BOTTOM, Layer.Edge.LEFT, Layer.Edge.RIGHT):
                 Layer.set_anchor(self, e, True)  # whole screen, below waybar (its exclusive zone is kept)
             # the veil takes the clicks around the card: a click there closes the menu and focuses the

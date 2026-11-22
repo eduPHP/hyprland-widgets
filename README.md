@@ -56,7 +56,6 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 - **One at a time.** Opening any popover closes the others (`hypr-ui/bin/hypr-ui-solo`).
 - **Resident daemons.** The GTK widgets stay running and toggle instantly; waybar modules call
   `<widget>` on click and `<widget> --status` for their bar text.
-- **Screenshot friendly.** While Flameshot's overlay is up the popovers step down a layer so they can be captured.
 
 ## Install
 

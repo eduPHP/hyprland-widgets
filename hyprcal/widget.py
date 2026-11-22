@@ -169,7 +169,7 @@ class Panel(Gtk.ApplicationWindow):
         self.app = app
         Layer.init_for_window(self)
         Layer.set_namespace(self, "hyprcal")
-        hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+        Layer.set_layer(self, Layer.Layer.OVERLAY)
         hypr_ui.popover(self, Layer)
         Layer.set_keyboard_mode(self, Layer.KeyboardMode.ON_DEMAND)
 
@@ -742,7 +742,7 @@ class Reminder(Gtk.Window):
         self.ev: store.Event | None = None
         Layer.init_for_window(self)
         Layer.set_namespace(self, "hyprcal-reminder")
-        hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+        Layer.set_layer(self, Layer.Layer.OVERLAY)
         hypr_ui.popover(self, Layer)  # top gap, shadow room, click-through margin
         Layer.set_keyboard_mode(self, Layer.KeyboardMode.NONE)
 

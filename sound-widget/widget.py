@@ -251,7 +251,7 @@ class Osd(Gtk.Window):
         super().__init__(application=app, title="sound-widget-osd")
         Layer.init_for_window(self)
         Layer.set_namespace(self, "sound-widget-osd")
-        hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+        Layer.set_layer(self, Layer.Layer.OVERLAY)
         hypr_ui.toast(self, Layer, bottom=88)  # card 88 px above the screen edge, click-through
         Layer.set_keyboard_mode(self, Layer.KeyboardMode.NONE)
         self.icon = label("", "osd-icon", xalign=0.5)
@@ -300,7 +300,7 @@ class Panel(Gtk.ApplicationWindow):
         self.app = app
         Layer.init_for_window(self)
         Layer.set_namespace(self, "sound-widget")
-        hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+        Layer.set_layer(self, Layer.Layer.OVERLAY)
         hypr_ui.popover(self, Layer)
         Layer.set_keyboard_mode(self, Layer.KeyboardMode.ON_DEMAND)
 

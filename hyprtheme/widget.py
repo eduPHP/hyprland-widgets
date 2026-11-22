@@ -349,7 +349,7 @@ class Picker(Gtk.ApplicationWindow):
         else:
             Layer.init_for_window(self)
             Layer.set_namespace(self, "hyprtheme")
-            hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+            Layer.set_layer(self, Layer.Layer.OVERLAY)
             for e in (Layer.Edge.TOP, Layer.Edge.BOTTOM, Layer.Edge.LEFT, Layer.Edge.RIGHT):
                 Layer.set_anchor(self, e, True)  # whole screen, below waybar (its exclusive zone is kept)
             # the rest of the desktop stays usable: clicks outside the card go through to it, and
@@ -774,7 +774,7 @@ class Toast(Gtk.Window):
         if not WINDOWED:
             Layer.init_for_window(self)
             Layer.set_namespace(self, "hyprtheme-toast")
-            hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+            Layer.set_layer(self, Layer.Layer.OVERLAY)
             Layer.set_anchor(self, Layer.Edge.BOTTOM, True)
             Layer.set_margin(self, Layer.Edge.BOTTOM, 88 - hypr_ui.MARGIN)
             Layer.set_keyboard_mode(self, Layer.KeyboardMode.NONE)

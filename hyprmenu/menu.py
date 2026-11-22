@@ -96,7 +96,6 @@ def tree() -> Node:
                 N("Screenshot", "camera-photo-symbolic", "omarchy-cmd-screenshot", keys="print"),
                 N("Screenshot window", "focus-windows-symbolic", "omarchy-cmd-screenshot window", keys="⇧ print"),
                 N("Screenshot display", "video-display-symbolic", "omarchy-cmd-screenshot output", keys="^ print"),
-                N("Flameshot", "applets-screenshooter-symbolic", f"{home}/.local/bin/flameshot-gui"),
                 N("Screen record", "media-record-symbolic", "omarchy-menu screenrecord", keys="alt print"),
                 N("Color picker", "color-select-symbolic", "hyprpicker -a", keys="super print"),
             ]),

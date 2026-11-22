@@ -389,7 +389,7 @@ class Toast(Gtk.Window):
         super().__init__(application=app, title="hyprpower-toast")
         Layer.init_for_window(self)
         Layer.set_namespace(self, "hyprpower-toast")
-        hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+        Layer.set_layer(self, Layer.Layer.OVERLAY)
         hypr_ui.toast(self, Layer, bottom=88)
         Layer.set_keyboard_mode(self, Layer.KeyboardMode.NONE)
         self.icon = glyph("", "toast-glyph")
@@ -426,7 +426,7 @@ class Identify(Gtk.Window):
         super().__init__(application=app, title="hyprpower-identify")
         Layer.init_for_window(self)
         Layer.set_namespace(self, "hyprpower-identify")
-        hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+        Layer.set_layer(self, Layer.Layer.OVERLAY)
         Layer.set_monitor(self, mon)
         Layer.set_keyboard_mode(self, Layer.KeyboardMode.NONE)
         box = vbox(4, label(G["monitor"], "ident-glyph", xalign=0.5), label(name, "ident-name", xalign=0.5))
@@ -444,7 +444,7 @@ class Panel(Gtk.ApplicationWindow):
         self.app = app
         Layer.init_for_window(self)
         Layer.set_namespace(self, "hyprpower")
-        hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
+        Layer.set_layer(self, Layer.Layer.OVERLAY)
         hypr_ui.popover(self, Layer)
         Layer.set_keyboard_mode(self, Layer.KeyboardMode.ON_DEMAND)
 
