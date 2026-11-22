@@ -3,9 +3,13 @@
 A theme picker for [`omarchy-theme`](../omarchy-theme) in the hypr-ui look. It replaces the fuzzel
 menu on Super+Ctrl+Shift+Space.
 
-- **Preview without changing anything.** Moving through the grid repaints the picker in the
-  highlighted theme and shows that theme's wallpaper behind it. The desktop stays as it is until
-  Enter, and Esc leaves everything untouched.
+- **Live preview.** Once the selection rests for 300 ms, the whole desktop switches to it (borders,
+  waybar, mako, terminal, wallpaper, widgets). GTK's light/dark setting waits for Enter, because it
+  makes every GTK window repaint. Enter keeps the theme; Esc (or toggling the picker away) puts back
+  the theme and wallpaper you had when it opened. A spinner and the badge next to the name show
+  when a theme is being applied.
+- **Doesn't take over the screen.** A light veil sits over the desktop, clicks outside the card go
+  through to your windows, and the picker only holds the keyboard while it has focus.
 - **Tiles drawn from the palette:** a crop of the wallpaper, a mini bar and terminal in the theme's
   colours, and its six accents. A theme doesn't need a `preview.png`, so your own themes get real
   tiles too.
@@ -27,7 +31,7 @@ menu on Super+Ctrl+Shift+Space.
 | Ctrl+F, or click the star | favourite |
 | Ctrl+R | a random theme from the current list |
 | Ctrl+1 … Ctrl+4 | All, Dark, Light, Favorites |
-| Esc | clear the filter, then close without changing anything (so does a click outside) |
+| Esc | clear the filter, then close and revert to the theme you had |
 
 ## Install
 
@@ -54,13 +58,15 @@ wallpapers are WebP. Without it those tiles show a gradient of the theme's colou
   `$XDG_RUNTIME_DIR/hyprtheme.sock`: `toggle` (default), `open`, `close`, `undo`, `quit`.
 - `themes.py` reads the installed themes through `omarchy_theme.py` and maps each palette with
   `hypr-ui/theme.py`, so the preview shows the colours the widgets will really get.
-- `widget.py` is a full-screen layer-shell surface on the OVERLAY layer. It keeps waybar's exclusive
-  zone and takes the keyboard while open. The card's stylesheet is the hypr-ui base sheet rendered
-  with the highlighted theme's colours.
-- Applying runs `omarchy-theme set <theme> --background <image>`, or `omarchy-theme bg <image>` when
-  only the wallpaper changed.
-- Wallpaper thumbnails are cached in `~/.cache/hyprtheme/thumbs`. Backdrops are decoded at screen
-  size off the main thread, and the last 8 are kept in memory.
+- `widget.py` is a full-screen layer-shell surface on the OVERLAY layer, keeping waybar's exclusive
+  zone, with keyboard mode on-demand and an input region covering only the card. The card's
+  stylesheet is the hypr-ui base sheet rendered with the highlighted theme's colours.
+- A preview runs `omarchy-theme set <theme> --background <image> --preview` (no gsettings, nothing
+  remembered, no undo step). Runs never overlap: the newest selection wins once the one in flight
+  finishes. Enter runs the full `set`, with `--from` the look the picker opened on, so `undo` goes
+  back past all the previews. Esc runs a `--preview` set back to that look.
+- Every run and its output is logged to the daemon's stderr.
+- Wallpaper thumbnails are cached in `~/.cache/hyprtheme/thumbs`.
 - Favourites live in `~/.local/state/hyprtheme/state.json`. The remembered wallpapers and the undo
   step live in `~/.local/state/omarchy-theme/state.json`.
 - It joins the one-popover rule (`hypr-ui-solo hyprtheme`, flag file `hyprtheme.open`).

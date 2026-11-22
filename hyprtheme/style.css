@@ -3,11 +3,11 @@
  * stylesheet. While browsing, the @colours are the highlighted theme's, not the desktop's
  * (widget.py reloads this sheet through hypr_ui.css_text). */
 
-/* the screen behind the card: the highlighted theme's wallpaper, dimmed */
-.dim { background: alpha(black, 0.38); }
+/* a light veil over the desktop, which itself shows the previewed theme */
+.dim { background: alpha(black, 0.15); }
 
 .picker {
-  background: @bg;
+  background: alpha(@bg, 0.94);
   border: 1px solid @frame;
   border-radius: 12px;
   box-shadow: 0 4px 12px alpha(black, 0.38);

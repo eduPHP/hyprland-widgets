@@ -42,6 +42,7 @@ COLS = 4
 TILE_H = 132
 THUMB_W = 480  # cached wallpaper thumbnails, wide enough for a tile at 2x
 TOAST_S = 10
+PREVIEW_MS = 300  # the selection must rest this long before the desktop follows it
 FONT = hypr_ui.TOKENS["font"]["family"]
 FILTERS = [("all", "All"), ("dark", "Dark"), ("light", "Light"), ("favs", "★ Favorites")]
 G = {"palette": "\U000f03d8", "search": "\U000f0349", "undo": "\U000f054c"}
@@ -138,17 +139,15 @@ def text(cr, s: str, x, y, px: float, color: str, bold=False, width: int | None 
     return layout.get_pixel_size()
 
 
-# ---------- images: thumbnails on disk, backdrops in memory, decoded off the main thread ----------
+# ---------- images: wallpaper thumbnails, cached on disk, decoded off the main thread ----------
 
 class Images:
-    """Wallpaper thumbnails (cached in ~/.cache/hyprtheme) and screen-size backdrops, loaded by a
-    worker thread in priority order. `on_ready(path, kind)` runs on the main thread."""
+    """Wallpaper thumbnails (cached in ~/.cache/hyprtheme), loaded by a worker thread in priority
+    order. `on_ready(path)` runs on the main thread."""
 
     def __init__(self, on_ready):
         self.on_ready = on_ready
         self.thumbs: dict[Path, GdkPixbuf.Pixbuf | None] = {}
-        self.backdrops: dict[tuple[Path, int, int], Gdk.Texture] = {}
-        self.order: list[tuple[Path, int, int]] = []  # LRU of backdrops
         self.queue: list = []
         self.queued: set = set()
         self.count = itertools.count()
@@ -159,41 +158,28 @@ class Images:
     def thumb(self, path: Path, prio: int = 5) -> GdkPixbuf.Pixbuf | None:
         if path in self.thumbs:
             return self.thumbs[path]
-        self._push(prio, ("thumb", path, 0, 0))
-        return None
-
-    def backdrop(self, path: Path, w: int, h: int) -> Gdk.Texture | None:
-        key = (path, w, h)
-        if key in self.backdrops:
-            self.order.remove(key)
-            self.order.append(key)
-            return self.backdrops[key]
-        self._push(0, ("backdrop", path, w, h))
-        return None
-
-    def _push(self, prio, job):
         with self.cv:
-            if job in self.queued:
-                return
-            self.queued.add(job)
-            heapq.heappush(self.queue, (prio, next(self.count), job))
-            self.cv.notify()
+            if path not in self.queued:
+                self.queued.add(path)
+                heapq.heappush(self.queue, (prio, next(self.count), path))
+                self.cv.notify()
+        return None
 
     def _work(self):
         while True:
             with self.cv:
                 while not self.queue:
                     self.cv.wait()
-                _, _, job = heapq.heappop(self.queue)
-            kind, path, w, h = job
+                _, _, path = heapq.heappop(self.queue)
             try:
-                pix = self._thumb(path) if kind == "thumb" else self._scaled(path, w, h)
-            except GLib.Error as e:
-                print(f"hyprtheme: {path}: {e.message}", file=sys.stderr)
+                pix = self._thumb(path)
+            except (GLib.Error, OSError) as e:
+                log(f"{path}: {getattr(e, 'message', e)}")
                 pix = None
-            GLib.idle_add(self._done, job, pix)
+            GLib.idle_add(self._done, path, pix)
 
-    def _thumb(self, path: Path) -> GdkPixbuf.Pixbuf:
+    @staticmethod
+    def _thumb(path: Path) -> GdkPixbuf.Pixbuf:
         st = path.stat()
         key = hashlib.sha1(f"{path}:{st.st_mtime_ns}:{st.st_size}:{THUMB_W}".encode()).hexdigest()
         cached = th.CACHE / "thumbs" / f"{key}.png"
@@ -205,28 +191,11 @@ class Images:
         os.replace(tmp, cached)
         return pix
 
-    @staticmethod
-    def _scaled(path: Path, w: int, h: int) -> GdkPixbuf.Pixbuf:
-        """Decoded at the size it covers the screen at, not at full resolution."""
-        _, iw, ih = GdkPixbuf.Pixbuf.get_file_info(str(path))
-        s = max(w / iw, h / ih) if iw and ih else 1
-        if s >= 1:
-            return GdkPixbuf.Pixbuf.new_from_file(str(path))
-        return GdkPixbuf.Pixbuf.new_from_file_at_scale(str(path), max(1, round(iw * s)), max(1, round(ih * s)), True)
-
-    def _done(self, job, pix):
-        kind, path, w, h = job
+    def _done(self, path, pix):
         with self.cv:
-            self.queued.discard(job)
-        if kind == "thumb":
-            self.thumbs[path] = pix
-        elif pix is not None:
-            key = (path, w, h)
-            self.backdrops[key] = Gdk.Texture.new_for_pixbuf(pix)
-            self.order.append(key)
-            while len(self.order) > 8:
-                self.backdrops.pop(self.order.pop(0), None)
-        self.on_ready(path, kind)
+            self.queued.discard(path)
+        self.thumbs[path] = pix
+        self.on_ready(path)
         return False
 
 
@@ -383,7 +352,10 @@ class Picker(Gtk.ApplicationWindow):
             hypr_ui.layer(self, Layer, Layer.Layer.OVERLAY)
             for e in (Layer.Edge.TOP, Layer.Edge.BOTTOM, Layer.Edge.LEFT, Layer.Edge.RIGHT):
                 Layer.set_anchor(self, e, True)  # whole screen, below waybar (its exclusive zone is kept)
-            Layer.set_keyboard_mode(self, Layer.KeyboardMode.EXCLUSIVE)
+            # the rest of the desktop stays usable: clicks outside the card go through to it, and
+            # the picker holds the keyboard only while it has focus
+            Layer.set_keyboard_mode(self, Layer.KeyboardMode.ON_DEMAND)
+            self.connect("realize", lambda w: w.get_surface().connect("layout", self._clip_input))
 
         self.themes: list[th.Theme] = []
         self.by_id: dict[str, th.Theme] = {}
@@ -397,25 +369,19 @@ class Picker(Gtk.ApplicationWindow):
         self.filter = "all"
         self.colors = dict(hypr_ui.TOKENS["color"])
         self.images = Images(self._image_ready)
+        # live preview: the look when the picker opened, the one the desktop shows now, and
+        # whether omarchy-theme is busy (previews wait for the last one, the newest wins)
+        self.orig: tuple[str | None, Path | None] = (None, None)
+        self.live: tuple[str | None, Path | None] = (None, None)
+        self.busy = False
+        self.preview_timer = 0
 
-        # backdrop: the highlighted theme's wallpaper over the whole screen, dimmed
-        self.back = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=220,
-                              hexpand=True, vexpand=True)
-        self.pics = [Gtk.Picture(content_fit=Gtk.ContentFit.COVER, can_shrink=True) for _ in range(2)]
-        for i, pic in enumerate(self.pics):
-            self.back.add_named(pic, str(i))
-        self.back_i = 0
         dim = Gtk.Box(hexpand=True, vexpand=True)
-        dim.add_css_class("dim")
-
+        dim.add_css_class("dim")  # a light veil over the desktop, which shows the preview itself
         self.card = self._build_card()
         root = Gtk.Overlay()
-        root.set_child(self.back)
-        root.add_overlay(dim)
+        root.set_child(dim)
         root.add_overlay(self.card)
-        click = Gtk.GestureClick()
-        click.connect("pressed", self._click_outside)
-        root.add_controller(click)
         self.set_child(root)
 
         keys = Gtk.EventControllerKey(propagation_phase=Gtk.PropagationPhase.CAPTURE)
@@ -429,7 +395,8 @@ class Picker(Gtk.ApplicationWindow):
         self.sub = label("", "subtitle", ellipsize=40)
         self.name = label("", "title", ellipsize=16)
         self.state = label("", "badge")
-        title = vbox(2, hbox(8, self.name, self.state), self.sub, valign=Gtk.Align.CENTER)
+        self.spin = Gtk.Spinner(valign=Gtk.Align.CENTER, visible=False)
+        title = vbox(2, hbox(8, self.name, self.state, self.spin), self.sub, valign=Gtk.Align.CENTER)
         title.set_size_request(320, -1)
         icon = label(G["palette"], "app-icon", xalign=0.5)
         self.entry = Gtk.Entry(placeholder_text="type to filter, fuzzy", hexpand=True, valign=Gtk.Align.CENTER)
@@ -472,7 +439,7 @@ class Picker(Gtk.ApplicationWindow):
         self.count = label("", "hint", xalign=1.0, hexpand=True)
         footer = hbox(14, keyhint("←↑↓→", "preview"), keyhint("tab", "wallpaper"),
                       keyhint("enter", "apply"), keyhint("^f", "favorite"), keyhint("^r", "random"),
-                      keyhint("^1-4", "filter"), keyhint("esc", "cancel, nothing changes"), self.count)
+                      keyhint("^1-4", "filter"), keyhint("esc", "revert and close"), self.count)
         footer.add_css_class("footer")
 
         card = vbox(0, header, hbox(0, self.scroll, side, vexpand=True), footer,
@@ -531,17 +498,11 @@ class Picker(Gtk.ApplicationWindow):
         self.app.paint(self.colors)
         n = len(t.backgrounds)
         self.sub.set_text(f"{t.mode} \u00b7 {n} wallpaper{'s' * (n != 1)}")
-        # say plainly that this is a preview: only Enter changes the desktop
-        if t.id == self.current:
-            self.state.set_text("in use")
-            self.state.remove_css_class("preview")
-        else:
-            self.state.set_text("preview only \u00b7 enter applies")
-            self.state.add_css_class("preview")
         self.name.set_text(t.title)
         self.term.set_markup(self._term_markup(t))
         self._fill_walls(t, rebuild=prev is not t)
-        self._show_backdrop()
+        self._schedule_preview()
+        self._status()
         for x in (prev, t):
             if x is not None and x.id in self.tiles:
                 self.tiles[x.id].queue_draw()
@@ -582,40 +543,71 @@ class Picker(Gtk.ApplicationWindow):
             note += " · remembered"
         self.wp_note.set_text(note)
 
-    def _show_backdrop(self):
-        t = self.hi
-        bg = self.wallpaper(t) if t else None
-        if bg is None:
-            return
-        w, h = self._screen()
-        tex = self.images.backdrop(bg, w, h)
-        if tex is None:
-            return  # keeps the last one until this one is decoded
-        cur = self.pics[self.back_i]
-        if cur.get_paintable() is tex:
-            return
-        self.back_i ^= 1
-        self.pics[self.back_i].set_paintable(tex)
-        self.back.set_visible_child_name(str(self.back_i))
+    # ----- live preview: the whole desktop follows the selection -----
 
-    def _screen(self) -> tuple[int, int]:
-        surf = self.get_surface()
-        mon = self.get_display().get_monitor_at_surface(surf) if surf else None
-        if mon is None:
-            mons = self.get_display().get_monitors()
-            mon = mons.get_item(0) if mons.get_n_items() else None
-        if mon is None:
-            return 1920, 1080
-        g = mon.get_geometry()
-        s = mon.get_scale() if hasattr(mon, "get_scale") else mon.get_scale_factor()
-        return round(g.width * s), round(g.height * s)
+    def want(self) -> tuple[str | None, Path | None]:
+        return (self.hi.id, self.wallpaper(self.hi)) if self.hi else (None, None)
 
-    def _image_ready(self, path: Path, kind: str):
+    def _schedule_preview(self):
+        if self.preview_timer:
+            GLib.source_remove(self.preview_timer)
+        # only once the selection rests, so holding an arrow key doesn't reload waybar on every step
+        self.preview_timer = GLib.timeout_add(PREVIEW_MS, self._preview)
+
+    def _preview(self):
+        self.preview_timer = 0
+        want = self.want()
+        if not self.get_visible() or want[0] is None or want == self.live or self.busy:
+            return False  # a busy run re-checks when it finishes
+        args = ["set", want[0], "--preview"] + (["--background", str(want[1])] if want[1] else [])
+        self._run(args, want, after=self._preview)
+        return False
+
+    def _run(self, args: list[str], look, after=None, done=None):
+        self.busy = True
+        self._status()
+
+        def finished(ok):
+            self.busy = False
+            if ok:
+                self.live = look
+            self._status()
+            if done:
+                done(ok)
+            elif after:
+                after()
+
+        self.app.run_theme(args, done=finished)
+
+    def _status(self):
+        """The badge next to the name: what the desktop is showing, and a spinner while it changes."""
+        self.spin.set_visible(self.busy)
+        self.spin.set_spinning(self.busy)
         t = self.hi
-        if kind == "backdrop":
-            if t and self.wallpaper(t) == path:
-                self._show_backdrop()
+        if t is None:
             return
+        if self.busy:
+            text, hot = "applying\u2026", True
+        elif self.want() == self.orig:
+            text, hot = "in use", False
+        elif self.want() == self.live:
+            text, hot = "previewing \u00b7 enter keeps it, esc reverts", True
+        else:
+            text, hot = "preview in a moment", True
+        self.state.set_text(text)
+        (self.state.add_css_class if hot else self.state.remove_css_class)("preview")
+
+    def _clip_input(self, surface, width, height):
+        """Only the card takes input; the veil around it passes clicks to the desktop."""
+        a = self.card.get_allocation()
+        if a.width <= 1:
+            a = Gdk.Rectangle()
+            a.x, a.y = (width - CARD_W) // 2, (height - CARD_H) // 2
+            a.width, a.height = CARD_W, CARD_H
+        surface.set_input_region(cairo.Region(cairo.RectangleInt(a.x, a.y, a.width, a.height)))
+
+    def _image_ready(self, path: Path):
+        t = self.hi
         for tile in self.tiles.values():
             if tile.t.backgrounds and self.wallpaper(tile.t) == path:
                 tile.queue_draw()
@@ -669,28 +661,51 @@ class Picker(Gtk.ApplicationWindow):
             self.highlight(random.choice(pool))
 
     def apply(self):
+        """Keep the highlighted theme: the full switch (GTK light/dark included), remembered, undoable."""
         t = self.hi
-        log("apply", t.id if t else None, "current:", self.current)
+        log("apply", t.id if t else None, "from:", self.orig[0], "live:", self.live[0])
         if t is None:
             return
-        bg = self.wallpaper(t)
-        prev = self.by_id.get(self.current)
-        self.close_picker()
-        if t.id == self.current and bg == self.current_bg:
+        want, orig = self.want(), self.orig
+        prev = self.by_id.get(orig[0])
+        self._close()
+        if want == orig and self.live == orig:
             self.app.toast.pop(f"Already on {t.title}", None, t.colors)
             return
-        if t.id == self.current:
-            args, title = ["bg", str(bg)], f"New {t.title} wallpaper"
-        else:
-            args = ["set", t.id] + (["--background", str(bg)] if bg else [])
-            title = f"Switched to {t.title}"
-        self.app.run_theme(args, done=lambda ok: self.app.toast.pop(
-            title if ok else f"Could not switch to {t.title}",
-            f"back to {prev.title}" if ok and prev else None, t.colors))
+        args = ["set", t.id] + (["--background", str(want[1])] if want[1] else [])
+        if orig[0]:
+            args += ["--from", orig[0]] + (["--from-background", str(orig[1])] if orig[1] else [])
+        self.app.toast.pop(f"Applying {t.title}\u2026", None, t.colors, busy=True)
+        self._when_idle(lambda: self._run(args, want, done=lambda ok: self.app.toast.pop(
+            f"Switched to {t.title}" if ok else f"Could not switch to {t.title}",
+            f"back to {prev.title}" if ok and prev and prev is not t else None, t.colors)))
 
     def cancel(self):
-        if self.get_visible():
-            self.close_picker()
+        """Close without keeping anything: the desktop goes back to how it was when the picker opened."""
+        if not self.get_visible():
+            return
+        orig = self.orig
+        self._close()
+        if self.live == orig and not self.busy or orig[0] is None:
+            return
+        o = self.by_id.get(orig[0])
+        self.app.toast.pop(f"Restoring {o.title if o else orig[0]}\u2026", None, o.colors if o else None, busy=True)
+        args = ["set", orig[0], "--preview"] + (["--background", str(orig[1])] if orig[1] else [])
+        self._when_idle(lambda: self._run(args, orig, done=lambda ok: self.app.toast.dismiss() if ok else
+                                          self.app.toast.pop("Could not restore the theme", None)))
+
+    def _when_idle(self, fn):
+        """Run `fn` once the omarchy-theme run in flight (a preview) has finished."""
+        if self.busy:
+            GLib.timeout_add(100, lambda: self._when_idle(fn) or False)
+        else:
+            fn()
+
+    def _close(self):
+        if self.preview_timer:
+            GLib.source_remove(self.preview_timer)
+            self.preview_timer = 0
+        self.close_picker()
 
     def close_picker(self):
         self.set_visible(False)
@@ -698,34 +713,29 @@ class Picker(Gtk.ApplicationWindow):
         self.app.paint(None)
 
     def open(self):
+        log("open, current:", th.ot.current())
         hypr_ui.solo("hyprtheme")
         self.app.toast.dismiss()
         self.reload()
+        self.orig = self.live = (self.current, self.current_bg)
         self.entry.set_text("")
         self.hi = None
         self.filter = "all"
         for k, b in self.chips.items():
             (b.add_css_class if k == "all" else b.remove_css_class)("active")
-        self.refilter(keep=self.by_id.get(self.current) or (self.themes[0] if self.themes else None))
         self.present()
+        self.refilter(keep=self.by_id.get(self.current) or (self.themes[0] if self.themes else None))
         self.entry.grab_focus()
         OPEN_FLAG.touch()
-        GLib.idle_add(self._show_backdrop)  # the monitor is known once the surface is mapped
 
     def toggle(self):
         self.cancel() if self.get_visible() else self.open()
 
-    def _click_outside(self, gesture, _n, x, y):
-        w = self.get_child().pick(x, y, Gtk.PickFlags.DEFAULT)
-        while w is not None and w is not self.card:
-            w = w.get_parent()
-        if w is None:
-            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-            self.cancel()
-
     def _on_key(self, _ctrl, keyval, _code, state):
         name = Gdk.keyval_name(keyval) or ""
         ctrl = bool(state & Gdk.ModifierType.CONTROL_MASK)
+        if name in ("Escape", "Return", "KP_Enter"):
+            log("key", name)
         if name == "Escape":
             if self.entry.get_text():
                 self.entry.set_text("")
@@ -770,10 +780,11 @@ class Toast(Gtk.Window):
             Layer.set_keyboard_mode(self, Layer.KeyboardMode.NONE)
             self.connect("realize", lambda w: w.get_surface().connect("layout", self._clip))
         self.icon = label(G["palette"], "toast-glyph")
+        self.spin = Gtk.Spinner(valign=Gtk.Align.CENTER, visible=False)
         self.title = label("", "toast-title")
         self.left = label("", "subtitle")
         self.undo_b = button("", "primary", self.undo)
-        box = hbox(12, self.icon, vbox(2, self.title, self.left, hexpand=True, valign=Gtk.Align.CENTER),
+        box = hbox(12, self.icon, self.spin, vbox(2, self.title, self.left, hexpand=True, valign=Gtk.Align.CENTER),
                    self.undo_b)
         box.add_css_class("toast")
         self.set_child(box)
@@ -785,14 +796,24 @@ class Toast(Gtk.Window):
         m = hypr_ui.MARGIN
         surface.set_input_region(cairo.Region(cairo.RectangleInt(m, m, max(0, width - 2 * m), max(0, height - 2 * m))))
 
-    def pop(self, title: str, undo_to: str | None, colors: dict | None = None):
+    def pop(self, title: str, undo_to: str | None, colors: dict | None = None, busy: bool = False):
+        """Show the toast; `busy` shows a spinner and stays until the next pop (the result)."""
         self.app.paint(colors)
         self.title.set_text(title)
         self.undo_b.set_visible(undo_to is not None)
         if undo_to:
-            self.undo_b.set_label(f"Undo · {undo_to}")
-        self.secs = TOAST_S
-        self._tick(start=True)
+            self.undo_b.set_label(f"Undo \u00b7 {undo_to}")
+        self.icon.set_visible(not busy)
+        self.spin.set_visible(busy)
+        self.spin.set_spinning(busy)
+        if busy:
+            if self.timer:
+                GLib.source_remove(self.timer)
+                self.timer = 0
+            self.left.set_text("")
+        else:
+            self.secs = TOAST_S
+            self._tick(start=True)
         self.present()
 
     def _tick(self, start=False):
@@ -915,6 +936,7 @@ class App(Gtk.Application):
         self.picker = Picker(self)
         self.toast = Toast(self)
         self._serve()
+        log("daemon started, python", sys.version.split()[0], "gtk", f"{Gtk.get_major_version()}.{Gtk.get_minor_version()}")
         GLib.idle_add(lambda: self.picker.reload() or False)  # thumbnails are ready by the first open
 
     def do_activate(self):
