@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+"""hyprlogin: the SDDM login screen in the hypr-ui look.
+
+    hyprlogin sync             write the current Omarchy theme (colours + wallpaper) for the login screen
+    hyprlogin preview          run the theme in sddm-greeter's test mode, nothing is installed
+    hyprlogin preview --state error|caps|busy|sessions|typing
+    hyprlogin check            list what the theme needs and what is missing
+    hyprlogin <theme-name>     the same as sync, run by omarchy-theme as a theme-set hook
+
+`sync` writes theme.conf and the wallpaper into /var/lib/hyprlogin (made by install.sh, owned by
+you), which the installed theme reads through theme.conf.user. It runs as a theme-set hook, so the
+login screen follows `omarchy-theme set` with no sudo.
+"""
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(os.path.realpath(__file__)).parent
+THEME_SRC = HERE / "theme"
+REPO = HERE.parent
+HOME = Path.home()
+STATE_DIR = Path(os.environ.get("HYPRLOGIN_DIR", "/var/lib/hyprlogin"))
+INSTALLED = Path("/usr/share/sddm/themes/hyprlogin")
+HYPR_UI_THEME = Path(os.environ.get("XDG_STATE_HOME") or HOME / ".local/state") / "hypr-ui/theme.json"
+TOKENS = REPO / "hypr-ui/tokens.json"
+WALLPAPER = HOME / ".config/omarchy/current/background"
+THEME_NAME = HOME / ".config/omarchy/current/theme.name"
+FONT_DIRS = [HOME / ".local/share/fonts", Path("/usr/local/share/fonts"), Path("/usr/share/fonts")]
+FONTS = ["JetBrainsMonoNerdFont-Regular.ttf", "JetBrainsMonoNerdFont-Bold.ttf", "JetBrainsMonoNerdFont-Light.ttf"]
+COLOURS = ["bg", "surface", "raised", "line", "frame", "fg", "bright", "muted", "faint",
+           "blue", "green", "amber", "orange", "red", "ink"]
+STATES = ["error", "caps", "busy", "sessions", "typing"]
+
+
+def palette() -> tuple[dict, str, str]:
+    """hypr-ui's colours for the current Omarchy theme, as theme.py resolved them."""
+    if HYPR_UI_THEME.exists():
+        t = json.loads(HYPR_UI_THEME.read_text())
+        return t["color"], t.get("theme", ""), t.get("mode", "dark")
+    colours = json.loads(TOKENS.read_text())["color"]
+    name = THEME_NAME.read_text().strip() if THEME_NAME.exists() else "tokyo-night"
+    return colours, name, "dark"
+
+
+def theme_look(name: str) -> tuple[tuple[dict, str, str], Path | None]:
+    """Any installed Omarchy theme's colours and wallpaper, resolved the way omarchy-theme and
+    hypr-ui would, without switching to it (for `preview --theme`)."""
+    import importlib.util
+    import tomllib
+
+    def load(path: Path):
+        spec = importlib.util.spec_from_file_location(path.stem.replace("-", "_"), path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    ot = load(REPO / "omarchy-theme/omarchy_theme.py")
+    hu = load(REPO / "hypr-ui/theme.py")
+    d = ot.theme_dirs().get(name)
+    if d is None:
+        raise SystemExit(f"hyprlogin: no theme named {name} (omarchy-theme list)")
+    raw = tomllib.loads((d / "colors.toml").read_text()) if (d / "colors.toml").exists() else {}
+    p = ot.resolve(raw, d)
+    wall = ot.remembered_background(name, d) or next(iter(ot.backgrounds(name, d)), None)
+    return (hu.tokens(p), name, p.get("mode", "dark")), wall
+
+
+def conf_text(extra: dict | None = None, background: str = "background.jpg", look: tuple | None = None) -> str:
+    colours, name, mode = look or palette()
+    lines = ["# written by `hyprlogin sync`; it is overwritten on every theme change", "[General]",
+             f"themeName={name}", f"mode={mode}", f"background={background}"]
+    lines += [f"{k}={colours[k]}" for k in COLOURS if k in colours]
+    lines += [f"{k}={v}" for k, v in (extra or {}).items()]
+    return "\n".join(lines) + "\n"
+
+
+def copy_wallpaper(dest_dir: Path, src: Path | None = None) -> str | None:
+    """Copy the current wallpaper next to the conf (the greeter can't read your home)."""
+    src = src or (WALLPAPER.resolve() if WALLPAPER.exists() else None)
+    if src is None or not src.exists():
+        return None
+    dest = dest_dir / f"background{src.suffix.lower()}"
+    for old in dest_dir.glob("background.*"):
+        if old != dest:
+            old.unlink()
+    if not dest.exists() or dest.stat().st_size != src.stat().st_size or dest.stat().st_mtime < src.stat().st_mtime:
+        tmp = dest.with_suffix(dest.suffix + ".tmp")
+        shutil.copyfile(src, tmp)
+        tmp.chmod(0o644)
+        tmp.replace(dest)
+    return str(dest)
+
+
+def write_if_changed(path: Path, text: str) -> bool:
+    if path.exists() and path.read_text() == text:
+        return False
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(text)
+    tmp.chmod(0o644)
+    tmp.replace(path)
+    return True
+
+
+def wait_for_palette(name: str, timeout: float = 6.0) -> None:
+    """omarchy-theme starts every hook at once, and hypr-ui's (which writes theme.json) may not be
+    done yet: wait until theme.json names the new theme."""
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            if json.loads(HYPR_UI_THEME.read_text()).get("theme") == name:
+                return
+        except (OSError, ValueError):
+            pass
+        time.sleep(0.2)
+
+
+def cmd_sync(args) -> int:
+    if getattr(args, "theme", None):
+        wait_for_palette(args.theme)
+    d = Path(args.dir) if args.dir else STATE_DIR
+    if not d.is_dir() or not os.access(d, os.W_OK):
+        print(f"hyprlogin: {d} is missing or not writable; run hyprlogin/install.sh first", file=sys.stderr)
+        return 1
+    bg = copy_wallpaper(d)
+    changed = write_if_changed(d / "theme.conf", conf_text(background=bg or "background.jpg"))
+    if not args.quiet:
+        _, name, _ = palette()
+        print(f"hyprlogin: {name}{' (updated)' if changed else ''}, wallpaper {bg or 'none'}")
+    return 0
+
+
+def find_font(name: str) -> Path | None:
+    for d in FONT_DIRS:
+        if d.is_dir():
+            for p in d.rglob(name):
+                return p
+    return None
+
+
+def stage(dest: Path, state: str | None, theme: str | None = None) -> Path:
+    """A copy of the theme as install.sh would lay it out, with a plain theme.conf.user."""
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(THEME_SRC, dest)
+    (dest / "fonts").mkdir(exist_ok=True)
+    for f in FONTS:
+        p = find_font(f)
+        if p:
+            shutil.copyfile(p, dest / "fonts" / f)
+    look, wall = theme_look(theme) if theme else (None, None)
+    bg = copy_wallpaper(dest, wall)
+    extra = {"demo": state} if state else {}
+    extra.update(allScreens="true", preview="true", host=os.uname().nodename)
+    (dest / "theme.conf.user").write_text(conf_text(extra, background=bg or "background.jpg", look=look))
+    return dest
+
+
+def greeter() -> str | None:
+    return shutil.which("sddm-greeter-qt6") or shutil.which("sddm-greeter")
+
+
+def cmd_preview(args) -> int:
+    g = greeter()
+    if not g:
+        print("hyprlogin: sddm-greeter-qt6 not found (apt install sddm)", file=sys.stderr)
+        return 1
+    d = stage(Path(os.environ.get("XDG_CACHE_HOME") or HOME / ".cache") / "hyprlogin/preview", args.state, args.theme)
+    print(f"hyprlogin: previewing {d}; close it with your close-window bind (or --seconds N)")
+    env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "wayland"))
+    proc = subprocess.Popen([g, "--test-mode", "--theme", str(d)], env=env)
+    if args.seconds:
+        try:
+            proc.wait(timeout=args.seconds)
+        except subprocess.TimeoutExpired:
+            proc.terminate()
+        return 0
+    return proc.wait()
+
+
+def cmd_check(args) -> int:
+    missing = []
+
+    def need(ok: bool, what: str, fix: str):
+        print(f"  {'ok ' if ok else 'MISSING'}  {what}" + ("" if ok else f"   ->  {fix}"))
+        if not ok:
+            missing.append(fix)
+
+    qml = Path("/usr/lib/x86_64-linux-gnu/qt6/qml")
+    print("hyprlogin needs:")
+    need(greeter() is not None, "sddm with the Qt 6 greeter (sddm-greeter-qt6)", "sudo apt install sddm")
+    need((qml / "QtQuick").is_dir(), "QML QtQuick", "sudo apt install qml6-module-qtquick")
+    need((qml / "QtQuick/Effects").is_dir(), "QML QtQuick.Effects (blur, shadow, masks)", "sudo apt install qml6-module-qtquick-effects")
+    need(Path("/usr/lib/x86_64-linux-gnu/qt6/plugins/imageformats/libqwebp.so").exists(),
+         "Qt WebP plugin (Omarchy's wallpapers are .webp)", "sudo apt install qt6-image-formats-plugins")
+    need(Path("/usr/lib/x86_64-linux-gnu/qt6/plugins/imageformats/libqjpeg.so").exists(),
+         "Qt JPEG plugin", "sudo apt install libqt6gui6")
+    for f in FONTS:
+        need(find_font(f) is not None, f"font {f}", "install JetBrainsMono Nerd Font (nerdfonts.com)")
+    need(HYPR_UI_THEME.exists(), "hypr-ui theme colours (~/.local/state/hypr-ui/theme.json)",
+         "omarchy-theme set <theme> (or hypr-ui/theme.py); tokens.json is used meanwhile")
+    need(WALLPAPER.exists(), "current wallpaper (~/.config/omarchy/current/background)", "omarchy-theme set <theme>")
+    print("installed:")
+    print(f"  {'yes' if INSTALLED.is_dir() else 'no '}  {INSTALLED}")
+    print(f"  {'yes' if STATE_DIR.is_dir() else 'no '}  {STATE_DIR}")
+    cur = ""
+    for f in sorted(Path("/etc/sddm.conf.d").glob("*.conf")) + [Path("/etc/sddm.conf")]:
+        if f.exists():
+            sect = ""
+            for line in f.read_text().splitlines():
+                line = line.strip()
+                if line.startswith("["):
+                    sect = line
+                elif sect == "[Theme]" and line.startswith("Current="):
+                    cur = line.split("=", 1)[1]
+    print(f"  {'yes' if cur == 'hyprlogin' else 'no '}  active theme: {cur or 'default'}")
+    return 1 if missing else 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="hyprlogin", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("sync", help="write the current theme for the login screen")
+    s.add_argument("--dir", help=f"where to write (default {STATE_DIR})")
+    s.add_argument("-q", "--quiet", action="store_true")
+    s.add_argument("--theme", help="wait until hypr-ui has written this theme's colours")
+    s.set_defaults(func=cmd_sync)
+    p = sub.add_parser("preview", help="run the theme in sddm-greeter --test-mode")
+    p.add_argument("--state", choices=STATES, help="show a state: wrong password, caps lock, logging in, session list")
+    p.add_argument("--theme", help="show another Omarchy theme (colours + wallpaper) without switching")
+    p.add_argument("--seconds", type=float, help="close the preview after this long")
+    p.set_defaults(func=cmd_preview)
+    c = sub.add_parser("check", help="list what is missing")
+    c.set_defaults(func=cmd_check)
+    argv = sys.argv[1:]
+    if argv and not argv[0].startswith("-") and argv[0] not in ("sync", "preview", "check"):
+        argv = ["sync", "--quiet", "--theme", argv[0]]       # theme-set hook: hyprlogin <theme-name>
+    args = ap.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
