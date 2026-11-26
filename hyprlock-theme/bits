@@ -1,0 +1,50 @@
+#!/bin/sh
+# Small text pieces for hyprlock's cmd[] labels, as Pango markup. hyprlock runs these every few
+# hundred ms while the screen is locked, so they stay plain sh and read /sys directly.
+#
+#   bits strip MUTED ORANGE GREEN RED FG   caps, battery and keyboard layout for the top strip
+#   bits caps ORANGE                       "caps lock is on" while it is, nothing otherwise
+#   bits locked FG MUTED THEME             "locked at HH:MM" and the theme name, under the field
+#   bits --demo caps ...                   act as if caps lock were on (for screenshots)
+
+demo=
+if [ "$1" = --demo ]; then demo=$2; shift 2; fi
+
+caps_on() {
+  [ "$demo" = caps ] && return 0
+  for led in /sys/class/leds/*::capslock/brightness; do
+    [ -r "$led" ] && [ "$(cat "$led")" != 0 ] && return 0
+  done
+  return 1
+}
+
+case $1 in
+  strip)
+    muted=$2 orange=$3 green=$4 red=$5 fg=$6
+    out=
+    caps_on && out="<span foreground=\"$orange\">󰘲 caps</span>     "
+    for bat in /sys/class/power_supply/BAT*; do
+      [ -r "$bat/capacity" ] || continue
+      cap=$(cat "$bat/capacity") st=$(cat "$bat/status" 2>/dev/null)
+      i=$((cap / 10)); [ $i -gt 9 ] && i=9
+      glyph=$(echo "󰁺 󰁻 󰁼 󰁽 󰁾 󰁿 󰂀 󰂁 󰂂 󰁹" | cut -d' ' -f$((i + 1)))
+      c=$muted
+      [ "$st" = Charging ] && glyph=󰂄 c=$green
+      [ "$cap" -le 15 ] && [ "$st" != Charging ] && c=$red
+      out="$out<span foreground=\"$c\">$glyph</span> <span foreground=\"$fg\">$cap%</span>     "
+      break
+    done
+    lay=
+    if command -v hyprctl >/dev/null && command -v jq >/dev/null; then
+      lay=$(hyprctl devices -j 2>/dev/null | jq -r '[.keyboards[] | select(.main)][0] | (.layout | split(","))[.active_layout_index // 0] // empty' 2>/dev/null)
+    fi
+    [ -n "$lay" ] && out="$out<span foreground=\"$muted\">󰌌</span> <span foreground=\"$fg\">$lay</span>"
+    printf '%s\n' "$out"
+    ;;
+  caps)
+    caps_on && printf '<span foreground="%s">󰘲  caps lock is on</span>\n' "$2" || echo
+    ;;
+  locked)
+    printf '<span foreground="%s">󰌾  locked at %s</span>    <span foreground="%s">%s</span>\n' "$2" "$(date +%H:%M)" "$3" "$4"
+    ;;
+esac
