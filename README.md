@@ -21,7 +21,7 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 | 🎨 | [`hypr-ui`](hypr-ui) | the shared design system: `tokens.json` → GTK CSS + Python helpers + a QML singleton | Python build script |
 | 🖼️ | [`hyprtheme`](hyprtheme) | theme picker: previews a theme and its wallpapers inside itself, fuzzy search, dark/light/favorite filters, undo after applying | GTK4 + gtk4-layer-shell |
 | 🚀 | [`hyprmenu`](hyprmenu) | start menu on Super+Space: most-used apps by focus time, the Omarchy menu, search over both, power row | GTK4 + gtk4-layer-shell |
-| 🔐 | [`hyprlogin`](hyprlogin) | SDDM login screen in the same look: clock over the blurred wallpaper, the card with avatar, password, session chooser and power row; follows the Omarchy theme | SDDM theme (QML, Qt 6) |
+| 🔐 | [`hyprlogin`](hyprlogin) | SDDM login screen laid out like the lock screen: clock, avatar and password field on the blurred wallpaper, session and power below; follows the Omarchy theme | SDDM theme (QML, Qt 6) |
 | 🔒 | [`hyprlock-theme`](hyprlock-theme) | hyprlock lock screen to match hyprlogin: the same clock, blurred wallpaper and avatar, the field straight on the wallpaper, caps/checking/wrong-password states; follows the Omarchy theme | hyprlock config generator (Python) |
 | 🖌️ | [`omarchy-theme`](omarchy-theme) | Omarchy's themes without Omarchy: one command restyles the wallpaper, borders, waybar, mako, fuzzel, terminal, btop, Neovim and every widget here, live | Python |
 
@@ -29,7 +29,7 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 
 <table>
 <tr><td colspan="3"><img src="docs/screenshots/hyprmenu.png" alt="hyprmenu start menu: most-used apps grid, the Omarchy menu and the power row"></td></tr>
-<tr><td colspan="3"><img src="docs/screenshots/hyprlogin.png" alt="hyprlogin SDDM login screen: clock, date and the login card over the blurred Tokyo Night wallpaper"></td></tr>
+<tr><td colspan="3"><img src="docs/screenshots/hyprlogin.png" alt="hyprlogin SDDM login screen: clock, date, avatar and password field over the blurred Tokyo Night wallpaper"></td></tr>
 <tr><td colspan="3"><img src="docs/screenshots/hyprlock.png" alt="hyprlock-theme lock screen: clock, date, avatar, name and password field over the blurred Tokyo Night wallpaper"></td></tr>
 <tr><td colspan="3"><img src="docs/screenshots/hyprtheme.png" alt="hyprtheme picker: Omarchy themes as wallpaper previews with their colour palettes"></td></tr>
 <tr>

@@ -16,9 +16,9 @@ import sys
 from PIL import Image
 name = sys.argv[1]
 im = Image.open(f"/tmp/hyprlogin-{name}.png").convert("RGB")
-if name in ("hyprlogin-sessions", "hyprlogin-error"):   # states: just the card and its surroundings
+if name in ("hyprlogin-sessions", "hyprlogin-error"):   # states: just the login stack and its surroundings
     w, h = im.size
-    im = im.crop((w // 2 - 330, h // 2 - 150, w // 2 + 330, h // 2 + 260))
+    im = im.crop((w // 2 - 330, h // 2 - 130, w // 2 + 330, h // 2 + 270))
     im.save(f"docs/screenshots/{name}.png", optimize=True)
     sys.exit()
 im.resize((1600, round(1600 * im.height / im.width)), Image.LANCZOS).save(f"docs/screenshots/{name}.png", optimize=True)
