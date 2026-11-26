@@ -47,6 +47,8 @@ hyprlogin/hyprlogin preview                 # the real theme in sddm-greeter --t
 hyprlogin/hyprlogin preview --theme gruvbox --state error
 ```
 
+Test mode can't log anyone in, so in the preview `enter` (or `esc` on an empty field) closes it.
+
 Then, as yourself with sudo:
 
 ```bash
