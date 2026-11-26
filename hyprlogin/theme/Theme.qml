@@ -35,7 +35,7 @@ QtObject {
 
     // the desktop: wallpaper, how much it is blurred and dimmed behind the card
     readonly property string background: conf("background", "background.jpg")
-    readonly property real blur: num("blur", 0.55)
+    readonly property real blur: num("blur", 1.0)
     readonly property real dim: num("dim", 0.35)
     readonly property string themeName: conf("themeName", "tokyo-night")
 

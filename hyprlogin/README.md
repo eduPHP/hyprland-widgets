@@ -1,25 +1,30 @@
 # hyprlogin
 
-The SDDM login screen in the [hypr-ui](../hypr-ui) look: the same card, frame, shadow, buttons and key
-hints as the start menu and the popovers, over the current Omarchy wallpaper. It follows the Omarchy
+The SDDM login screen in the [hypr-ui](../hypr-ui) look, laid out like the lock screen
+([hyprlock-theme](../hyprlock-theme)): clock, avatar, name and password field straight on the blurred
+Omarchy wallpaper, no box around them, with the same field, colours, shadows and key-hint pill. It follows the Omarchy
 theme: `omarchy-theme set gruvbox` changes the login screen too, with no sudo.
 
 ![hyprlogin on Tokyo Night](../docs/screenshots/hyprlogin.png)
 
 <table><tr>
-<td width="50%"><img src="../docs/screenshots/hyprlogin-sessions.png" alt="session list open inside the card"></td>
-<td width="50%"><img src="../docs/screenshots/hyprlogin-error.png" alt="wrong password: red frame and message, the card shakes"></td>
+<td width="50%"><img src="../docs/screenshots/hyprlogin-sessions.png" alt="session list open under the session line"></td>
+<td width="50%"><img src="../docs/screenshots/hyprlogin-error.png" alt="wrong password: red outline and message, the stack shakes"></td>
 </tr></table>
 
 ![hyprlogin on Flexoki Light with caps lock on](../docs/screenshots/hyprlogin-light.png)
 
 ## What's on it
 
-- **Clock and date** over the wallpaper, which is blurred and dimmed like the start menu's veil.
-- **The card**: avatar (or your initial), name, `user@host`, the password field, the session chooser and a
-  power row. Restart and shut down ask for a second press.
-- **States**: caps lock warns in orange (here and in the top strip), a wrong password turns the frame red,
-  clears the field and shakes the card, logging in shows a spinner.
+- **Clock and date** over the wallpaper, which is blurred and dimmed (35% of the theme's background), as on
+  the lock screen.
+- **No box** (same as hyprlock-theme v2): a 76 px round avatar with a frame border (or your initial), name,
+  `user@host`, then a 300×36 password field in the theme's background at 72% with an accent outline. Text has
+  a soft shadow so it reads on any wallpaper.
+- **Below the field**: the session as a quiet line that opens a small list, and suspend / restart / shut down
+  as text buttons. Restart and shut down ask for a second press.
+- **States**: the outline turns orange with caps lock (plus a warning line and "caps" in the top strip), green
+  while logging in, red on a wrong password, which also clears the field and shakes the stack.
 - **Top strip** the height of waybar: hostname, caps lock, keyboard layout.
 - **Second monitor**: wallpaper and the strip with a clock; the card stays on the primary screen
   (`allScreens=true` in theme.conf puts it on every screen).
@@ -81,14 +86,14 @@ named in the other conf files (maui on edu-dev).
 waits for hypr-ui's hook to finish first, since omarchy-theme starts them all at once.
 
 `theme.conf` holds the defaults (hypr-ui's `tokens.json`, Tokyo Night) and the knobs:
-`blur` (0–1), `dim` (veil opacity), `scale` (1.2 matches the desktop's 1.2× on a 1080p panel),
+`blur` (0–1, 1.0 matches hyprlock-theme), `dim` (veil opacity), `scale` (1.2 matches the desktop's 1.2× on a 1080p panel),
 `allScreens`. Put your own values in `/var/lib/hyprlogin/theme.conf` only if you stop the hook;
 `sync` rewrites that file.
 
 ## Files
 
 ```
-theme/Main.qml        the screen: wallpaper, strip, clock, card, key hints
+theme/Main.qml        the screen: wallpaper, strip, clock, avatar, field, session, power, key hints
 theme/Theme.qml       tokens: colours, sizes, radii, read from theme.conf / theme.conf.user
 theme/Btn.qml Txt.qml Key.qml   hypr-ui button, text, key hint
 theme/theme.conf      defaults; theme/metadata.desktop
