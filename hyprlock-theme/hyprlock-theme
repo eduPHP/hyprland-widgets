@@ -1,0 +1,415 @@
+#!/usr/bin/env python3
+"""hyprlock-theme: the hyprlock lock screen in the hypr-ui look, to match hyprlogin.
+
+    hyprlock-theme sync                  write the lock screen for the current Omarchy theme
+    hyprlock-theme sync --theme NAME     the same for another theme, written to --out (for screenshots)
+    hyprlock-theme preview [--theme NAME]  lock the screen now with it (unlock with your password)
+    hyprlock-theme check                 list what it needs and what is missing
+    hyprlock-theme <theme-name>          the same as sync, run by omarchy-theme as a theme-set hook
+
+`sync` writes ~/.local/state/hyprlock-theme/hyprlock.conf, which ~/.config/hypr/hyprlock.conf sources
+(install.sh sets that up and keeps a backup of the old one). The colours are hypr-ui's resolved
+tokens, so the lock screen, the login screen and every widget share one palette.
+"""
+
+import argparse
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+HERE = Path(os.path.realpath(__file__)).parent
+REPO = HERE.parent
+HOME = Path.home()
+STATE = Path(os.environ.get("XDG_STATE_HOME") or HOME / ".local/state")
+OUT = STATE / "hyprlock-theme/hyprlock.conf"
+HYPR_UI_THEME = STATE / "hypr-ui/theme.json"
+TOKENS = REPO / "hypr-ui/tokens.json"
+WALLPAPER = HOME / ".config/omarchy/current/background"
+THEME_NAME = HOME / ".config/omarchy/current/theme.name"
+BITS = HERE / "bits"
+FONT = "JetBrainsMono Nerd Font"
+FONT_LIGHT = "JetBrainsMono Nerd Font Light"           # the clock, like hyprlogin's 300 weight
+
+# One layout unit is a hypr-ui px at the size hyprlogin draws on a 1080 px tall screen (its Theme.qml
+# scale of 1.2), so the lock screen and the login screen line up. Both edu-dev monitors are 1080 tall.
+U = float(os.environ.get("HYPRLOCK_THEME_SCALE", "1.2"))
+
+
+def px(n: float) -> int:
+    return round(n * U)
+
+
+def pt(n: float) -> int:
+    """hyprlock's font_size is in points (Pango, 96 dpi): a hypr-ui px size as points."""
+    return max(1, round(n * U * 0.75))
+
+
+def palette() -> tuple[dict, str, str]:
+    """hypr-ui's colours for the current Omarchy theme, as theme.py resolved them."""
+    if HYPR_UI_THEME.exists():
+        t = json.loads(HYPR_UI_THEME.read_text())
+        return t["color"], t.get("theme", ""), t.get("mode", "dark")
+    colours = json.loads(TOKENS.read_text())["color"]
+    name = THEME_NAME.read_text().strip() if THEME_NAME.exists() else "tokyo-night"
+    return colours, name, "dark"
+
+
+def theme_look(name: str) -> tuple[tuple[dict, str, str], Path | None]:
+    """Any installed Omarchy theme's colours and wallpaper, resolved the way omarchy-theme and hypr-ui
+    would, without switching to it."""
+    import importlib.util
+    import tomllib
+
+    def load(path: Path):
+        spec = importlib.util.spec_from_file_location(path.stem.replace("-", "_"), path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    ot = load(REPO / "omarchy-theme/omarchy_theme.py")
+    hu = load(REPO / "hypr-ui/theme.py")
+    d = ot.theme_dirs().get(name)
+    if d is None:
+        raise SystemExit(f"hyprlock-theme: no theme named {name} (omarchy-theme list)")
+    raw = tomllib.loads((d / "colors.toml").read_text()) if (d / "colors.toml").exists() else {}
+    p = ot.resolve(raw, d)
+    wall = ot.remembered_background(name, d) or next(iter(ot.backgrounds(name, d)), None)
+    return (hu.tokens(p), name, p.get("mode", "dark")), wall
+
+
+def rgba(hex_colour: str, alpha: float = 1.0) -> str:
+    h = hex_colour.lstrip("#")[:6]
+    return f"rgba({h}{round(alpha * 255):02x})"
+
+
+def mk(hex_colour: str) -> str:
+    """A colour for Pango markup; hyprlang reads a lone # as a comment, ## is a literal #."""
+    return "##" + hex_colour.lstrip("#")[:6]
+
+
+def esc(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("#", "##")
+
+
+def full_name() -> str:
+    try:
+        import pwd
+        gecos = pwd.getpwuid(os.getuid()).pw_gecos.split(",")[0].strip()
+        return gecos or os.environ.get("USER", "")
+    except (KeyError, ImportError):
+        return os.environ.get("USER", "")
+
+
+def layout() -> dict:
+    """Vertical centres (y up from the screen centre) of the stacked parts, in hypr-ui px,
+    following the approved mockup: clock, date, avatar, name, user@host, field, a status line, footer."""
+    parts = [("clock", 0, 79.8), ("date", 0, 22.5), ("avatar", 28, 76), ("name", 10, 25.5),
+             ("user", 0, 16.5), ("field", 16, 36)]
+    total = sum(g + h for _, g, h in parts) + 28 + 16      # + the footer line under the field
+    y = 14 + total / 2                                      # the stack sits a little above centre
+    out = {}
+    for key, gap, h in parts:
+        y -= gap
+        out[key] = y - h / 2
+        y -= h
+    out["caps"] = y - 15
+    out["foot"] = y - 40
+    return out
+
+
+def conf_text(look: tuple | None = None, wallpaper: str | None = None, demo: str | None = None,
+              avatar: str | None = None) -> str:
+    c, name, mode = look or palette()
+    dark = mode != "light"
+    accent = c.get("blue", c.get("accent", "#7aa2f7"))
+    wall = wallpaper or str(WALLPAPER)
+    host = socket.gethostname()
+    y = layout()
+    shadow = "rgba(00000073)" if dark else "rgba(fffcf099)"
+    # drop shadows under the avatar and the field: a dark one reads as a smudge on a light theme
+    avatar_shadow, field_shadow = ("rgba(00000061)", "rgba(00000040)") if dark else ("rgba(00000014)", "rgba(00000010)")
+    text_shadow = f"""    shadow_passes = 1
+    shadow_size = {px(4)}
+    shadow_color = {shadow}
+    shadow_boost = 1.0"""
+    bits = f"{BITS} " + (f"--demo {demo} " if demo else "")
+    col = lambda k: mk(c[k])            # noqa: E731
+
+    def label(text: str, size: float, yy: float, colour: str, extra: str = "", x: float = 0,
+              halign: str = "center", valign: str = "center", shadowed: bool = True, family: str = FONT) -> str:
+        return f"""label {{
+    monitor =
+    text = {text}
+    font_family = {family}
+    font_size = {pt(size)}
+    color = {rgba(c[colour])}
+    position = {px(x)}, {px(yy)}
+    halign = {halign}
+    valign = {valign}
+{text_shadow if shadowed else ''}
+{extra}}}
+"""
+
+    strip_h = 26
+    field_w, field_h = 300, 36
+    hint_text = "enter  unlock    esc  clear"
+    hint_h = 28
+    hint_w = (len(hint_text) + 4) * 0.6 * 10.5 + 28      # monospace advance is 0.6em; + the chip padding
+    s = f"""# written by `hyprlock-theme sync` for the {name} theme; it is overwritten on every theme change.
+# The layout lives in hyprland-widgets/hyprlock-theme/hyprlock-theme; edit it there.
+
+general {{
+    ignore_empty_input = true
+    hide_cursor = true
+    fail_timeout = 2500
+}}
+
+animations {{
+    enabled = true
+    bezier = ease, 0.25, 0.1, 0.25, 1
+    animation = fadeIn, 1, 3, ease
+    animation = fadeOut, 1, 3, ease
+    animation = inputFieldColors, 1, 2, ease
+    animation = inputFieldFade, 1, 2, ease
+    animation = inputFieldDots, 1, 1, ease
+}}
+
+# wallpaper, blurred, then the theme's background at 35% over it (hyprlogin's veil)
+background {{
+    monitor =
+    path = {wall}
+    color = {rgba(c['bg'])}
+    blur_passes = 3
+    blur_size = 8
+    noise = 0.01
+    brightness = 0.9
+    vibrancy = 0.12
+}}
+
+shape {{
+    monitor =
+    size = 100%, 100%
+    color = {rgba(c['bg'], .35)}
+    rounding = 0
+    border_size = 0
+    halign = center
+    valign = center
+    zindex = -1
+}}
+
+# top strip: host on the left; caps, battery and keyboard layout on the right
+shape {{
+    monitor =
+    size = 100%, {px(strip_h)}
+    color = {rgba(c['bg'], .55)}
+    rounding = 0
+    border_size = 0
+    position = 0, 0
+    halign = center
+    valign = top
+}}
+
+{label(f'<span foreground="{mk(accent)}">󰌢</span>  {esc(host)}', 11, -4, 'fg', x=12, halign='left', valign='top', shadowed=False)}
+{label(f'cmd[update:1000] {bits}strip "{c["muted"]}" "{c["orange"]}" "{c["green"]}" "{c["red"]}" "{c["fg"]}"'.replace('"#', '"##'), 11, -4, 'fg', x=-12, halign='right', valign='top', shadowed=False)}
+# clock and date
+{label('$TIME', 76, y['clock'], 'bright', family=FONT_LIGHT)}
+{label('cmd[update:30000] LC_ALL=C date +"%A, %-d %B" | tr "[:upper:]" "[:lower:]"', 15, y['date'], 'fg')}
+# avatar, name, user@host
+image {{
+    monitor =
+    path = {avatar or HOME / '.face'}
+    size = {px(76)}
+    rounding = -1
+    border_size = {px(2)}
+    border_color = {rgba(c['frame'])}
+    position = 0, {px(y['avatar'])}
+    halign = center
+    valign = center
+    shadow_passes = 1
+    shadow_size = {px(6)}
+    shadow_color = {avatar_shadow}
+}}
+
+{label(f'<b>{esc(full_name())}</b>', 17, y['name'], 'bright')}
+{label(f'$USER@{esc(host)}', 11, y['user'], 'fg')}
+# password field: outline in the accent, orange with caps lock, green while checking, red on a failure
+input-field {{
+    monitor =
+    size = {px(field_w)}, {px(field_h)}
+    outline_thickness = 1
+    rounding = {px(7)}
+    inner_color = {rgba(c['bg'], .72)}
+    outer_color = {rgba(accent)}
+    check_color = {rgba(c['green'])}
+    fail_color = {rgba(c['red'])}
+    capslock_color = {rgba(c['orange'])}
+    font_color = {rgba(c['fg'])}
+    font_family = {FONT}
+    dots_size = 0.2
+    dots_spacing = 1.0
+    dots_center = true
+    dots_rounding = -1
+    fade_on_empty = false
+    hide_input = false
+    placeholder_text = <span foreground="{col('faint')}">password</span>
+    fail_text = <span foreground="{col('red')}">wrong password, try again ($ATTEMPTS)</span>
+    position = 0, {px(y['field'])}
+    halign = center
+    valign = center
+    shadow_passes = 1
+    shadow_size = {px(6)}
+    shadow_color = {field_shadow}
+}}
+
+{label(f'<span foreground="{col("muted")}">󰌾</span>', 13, y['field'], 'muted', x=-field_w / 2 + 19, shadowed=False, extra='    zindex = 1\n')}
+{label(f'cmd[update:250] {bits}caps "{c["orange"]}"'.replace('"#', '"##'), 11, y['caps'], 'orange')}
+{label(f'cmd[update:86400000] {bits}locked "{c["fg"]}" "{c["muted"]}" {esc(name)}'.replace('"#', '"##'), 10.5, y['foot'], 'fg')}
+# key hints
+shape {{
+    monitor =
+    size = {px(hint_w)}, {px(hint_h)}
+    color = {rgba(c['bg'], .82)}
+    rounding = -1
+    border_size = 1
+    border_color = {rgba(c['frame'])}
+    position = 0, {px(24)}
+    halign = center
+    valign = bottom
+}}
+
+{label(f'<span background="{col("raised")}" foreground="{col("fg")}"> enter </span>  unlock    <span background="{col("raised")}" foreground="{col("fg")}"> esc </span>  clear', 10.5, 24 + (hint_h - 15) / 2, 'muted', valign='bottom', shadowed=False)}
+"""
+    return s
+
+
+def write_if_changed(path: Path, text: str) -> bool:
+    if path.exists() and path.read_text() == text:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(text)
+    tmp.replace(path)
+    return True
+
+
+def wait_for_palette(name: str, timeout: float = 6.0) -> None:
+    """omarchy-theme starts every hook at once, and hypr-ui's (which writes theme.json) may not be
+    done yet: wait until theme.json names the new theme."""
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            if json.loads(HYPR_UI_THEME.read_text()).get("theme") == name:
+                return
+        except (OSError, ValueError):
+            pass
+        time.sleep(0.2)
+
+
+def initial_avatar(colours: dict, dest: Path) -> str:
+    """hyprlogin's fallback avatar, your initial on a raised tile, as a PNG (for when there is no
+    ~/.face, or for screenshots that shouldn't show your photo)."""
+    from PIL import Image, ImageDraw, ImageFont
+    size = 4 * px(76)
+    im = Image.new("RGB", (size, size), colours["raised"])
+    d = ImageDraw.Draw(im)
+    font = None
+    for f in subprocess.run(["fc-match", "-f", "%{file}", f"{FONT}:bold"], capture_output=True, text=True).stdout.split("\n")[:1]:
+        try:
+            font = ImageFont.truetype(f, size * 0.42)
+        except OSError:
+            pass
+    letter = (full_name() or "?")[0].upper()
+    d.text((size / 2, size / 2), letter, fill=colours.get("blue", "#7aa2f7"), font=font, anchor="mm")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    im.save(dest)
+    return str(dest)
+
+
+def render(theme: str | None, demo: str | None = None, avatar: str | None = None, out: Path = OUT) -> str:
+    look, wall = theme_look(theme) if theme else (palette(), None)
+    if avatar == "initial" or (avatar is None and not (HOME / ".face").exists()):
+        try:
+            avatar = initial_avatar(look[0], out.with_name(out.stem + "-avatar.png"))
+        except ImportError:
+            avatar = None
+    return conf_text(look, str(wall) if wall else None, demo, avatar)
+
+
+def cmd_sync(args) -> int:
+    if args.hook:
+        wait_for_palette(args.hook)
+    out = Path(args.out) if args.out else OUT
+    changed = write_if_changed(out, render(args.theme, args.demo, args.avatar, out))
+    if not args.quiet:
+        print(f"hyprlock-theme: {out}{' (updated)' if changed else ''}")
+    return 0
+
+
+def cmd_preview(args) -> int:
+    if not shutil.which("hyprlock"):
+        print("hyprlock-theme: hyprlock isn't installed", file=sys.stderr)
+        return 1
+    with tempfile.NamedTemporaryFile("w", suffix=".conf", prefix="hyprlock-theme-") as f:
+        f.write(render(args.theme, args.demo, args.avatar, Path(f.name)))
+        f.flush()
+        print("hyprlock-theme: locking now; unlock with your password")
+        return subprocess.call(["hyprlock", "--config", f.name])
+
+
+def cmd_check(args) -> int:
+    missing = []
+
+    def need(ok: bool, what: str, fix: str):
+        print(f"  {'ok ' if ok else 'MISSING'}  {what}" + ("" if ok else f"   ->  {fix}"))
+        if not ok:
+            missing.append(fix)
+
+    print("hyprlock-theme needs:")
+    need(shutil.which("hyprlock") is not None, "hyprlock 0.9 or newer", "install hyprlock")
+    fonts = subprocess.run(["fc-list", FONT], capture_output=True, text=True).stdout if shutil.which("fc-list") else ""
+    need(bool(fonts.strip()), f"font {FONT}", "install JetBrainsMono Nerd Font (nerdfonts.com)")
+    need(HYPR_UI_THEME.exists(), "hypr-ui theme colours (~/.local/state/hypr-ui/theme.json)",
+         "omarchy-theme set <theme> (tokens.json is used meanwhile)")
+    need(WALLPAPER.exists(), "current wallpaper (~/.config/omarchy/current/background)", "omarchy-theme set <theme>")
+    need((HOME / ".face").exists(), "~/.face (the avatar)", "put a square picture of you at ~/.face")
+    conf = HOME / ".config/hypr/hyprlock.conf"
+    wired = conf.exists() and "hyprlock-theme" in conf.read_text()
+    print("installed:")
+    print(f"  {'yes' if OUT.exists() else 'no '}  {OUT}")
+    print(f"  {'yes' if wired else 'no '}  {conf} sources it")
+    return 1 if missing else 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="hyprlock-theme", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("sync", help="write the lock screen for the current theme")
+    s.add_argument("--theme", help="write another Omarchy theme's look instead of the current one")
+    s.add_argument("--out", help=f"where to write (default {OUT})")
+    s.add_argument("--demo", choices=["caps"], help="show a state the real screen can't be put in on demand")
+    s.add_argument("--avatar", help="a picture instead of ~/.face, or 'initial' for your initial on a tile")
+    s.add_argument("--hook", help=argparse.SUPPRESS)
+    s.add_argument("-q", "--quiet", action="store_true")
+    s.set_defaults(func=cmd_sync)
+    p = sub.add_parser("preview", help="lock the screen now with it")
+    p.add_argument("--theme", help="another Omarchy theme, without switching to it")
+    p.add_argument("--demo", choices=["caps"], help=argparse.SUPPRESS)
+    p.add_argument("--avatar", help="a picture instead of ~/.face, or 'initial'")
+    p.set_defaults(func=cmd_preview)
+    c = sub.add_parser("check", help="list what is missing")
+    c.set_defaults(func=cmd_check)
+    argv = sys.argv[1:]
+    if argv and not argv[0].startswith("-") and argv[0] not in ("sync", "preview", "check"):
+        argv = ["sync", "--quiet", "--hook", argv[0]]       # theme-set hook: hyprlock-theme <theme-name>
+    args = ap.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
