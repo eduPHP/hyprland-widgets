@@ -17,6 +17,7 @@ import json
 import os
 import shutil
 import subprocess
+import threading
 import sys
 import time
 from pathlib import Path
@@ -171,16 +172,26 @@ def cmd_preview(args) -> int:
         print("hyprlogin: sddm-greeter-qt6 not found (apt install sddm)", file=sys.stderr)
         return 1
     d = stage(Path(os.environ.get("XDG_CACHE_HOME") or HOME / ".cache") / "hyprlogin/preview", args.state, args.theme)
-    print(f"hyprlogin: previewing {d}; close it with your close-window bind (or --seconds N)")
+    print(f"hyprlogin: previewing {d}; press Enter (or Esc on an empty field) to close it")
     env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "wayland"))
-    proc = subprocess.Popen([g, "--test-mode", "--theme", str(d)], env=env)
+    proc = subprocess.Popen([g, "--test-mode", "--theme", str(d)], env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
     if args.seconds:
-        try:
-            proc.wait(timeout=args.seconds)
-        except subprocess.TimeoutExpired:
+        t = threading.Timer(args.seconds, proc.terminate)
+        t.daemon = True
+        t.start()
+    # test mode can't log in and the greeter can't quit itself: the theme logs a marker
+    # on Enter / Esc and we close it from here, so the preview never traps the screen
+    for line in proc.stdout:
+        if "hyprlogin:close-preview" in line:
             proc.terminate()
-        return 0
-    return proc.wait()
+            break
+        sys.stderr.write(line)
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+    return 0
 
 
 def cmd_check(args) -> int:

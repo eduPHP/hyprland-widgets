@@ -72,7 +72,11 @@ Rectangle {
         return "";
     }
 
+    // sddm-greeter leaves Qt.quit() unconnected, so `hyprlogin preview` watches for this line
+    function closePreview() { console.log("hyprlogin:close-preview"); }
     function login() {
+        // test mode can't log anyone in; leave the preview instead of trapping the screen
+        if (preview) { closePreview(); return; }
         if (busy) return;
         failed = false;
         busy = true;
@@ -402,7 +406,7 @@ Rectangle {
                     Keys.onEnterPressed: root.login()
                     Keys.onUpPressed: root.cycleSession(-1)
                     Keys.onDownPressed: root.cycleSession(1)
-                    Keys.onEscapePressed: { if (root.sessionsOpen) root.sessionsOpen = false; else text = ""; }
+                    Keys.onEscapePressed: { if (root.sessionsOpen) root.sessionsOpen = false; else if (text === "" && root.preview) root.closePreview(); else text = ""; }
                     Keys.onPressed: (e) => {
                         if ((e.modifiers & Qt.AltModifier) && (e.key === Qt.Key_Left || e.key === Qt.Key_Right)) {
                             root.cycleUser(e.key === Qt.Key_Left ? -1 : 1);
