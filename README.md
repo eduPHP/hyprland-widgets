@@ -21,12 +21,14 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 | 🎨 | [`hypr-ui`](hypr-ui) | the shared design system: `tokens.json` → GTK CSS + Python helpers + a QML singleton | Python build script |
 | 🖼️ | [`hyprtheme`](hyprtheme) | theme picker: previews a theme and its wallpapers inside itself, fuzzy search, dark/light/favorite filters, undo after applying | GTK4 + gtk4-layer-shell |
 | 🚀 | [`hyprmenu`](hyprmenu) | start menu on Super+Space: most-used apps by focus time, the Omarchy menu, search over both, power row | GTK4 + gtk4-layer-shell |
+| 🔐 | [`hyprlogin`](hyprlogin) | SDDM login screen in the same look: clock over the blurred wallpaper, the card with avatar, password, session chooser and power row; follows the Omarchy theme | SDDM theme (QML, Qt 6) |
 | 🖌️ | [`omarchy-theme`](omarchy-theme) | Omarchy's themes without Omarchy: one command restyles the wallpaper, borders, waybar, mako, fuzzel, terminal, btop, Neovim and every widget here, live | Python |
 
 ## Gallery
 
 <table>
 <tr><td colspan="3"><img src="docs/screenshots/hyprmenu.png" alt="hyprmenu start menu: most-used apps grid, the Omarchy menu and the power row"></td></tr>
+<tr><td colspan="3"><img src="docs/screenshots/hyprlogin.png" alt="hyprlogin SDDM login screen: clock, date and the login card over the blurred Tokyo Night wallpaper"></td></tr>
 <tr><td colspan="3"><img src="docs/screenshots/hyprtheme.png" alt="hyprtheme picker: Omarchy themes as wallpaper previews with their colour palettes"></td></tr>
 <tr>
 <td width="33%"><img src="docs/screenshots/wifi.png" alt="wifi tab: connected network card with throughput graph and the list of nearby networks"></td>
@@ -51,6 +53,8 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 - **One look.** Every popover takes its colours, radii, spacing and shadow from [`hypr-ui`](hypr-ui).
 - **Follows your theme.** `omarchy-theme set gruvbox` (or Super+Ctrl+Shift+Space for the hyprtheme picker) switches all of them,
   hyprspot included, to any of Omarchy's 23 themes, light ones too, without a restart.
+- **A login screen.** [`hyprlogin`](hyprlogin) is an SDDM theme built from the same tokens; it follows
+  theme switches too (`sudo hyprlogin/install.sh` once, then nothing).
 - **A start menu.** Super+Space opens [`hyprmenu`](hyprmenu): your most-used apps (by time in focus), the
   Omarchy menu, and a search over both. Super+Alt+Space opens it on the menu side.
 - **One at a time.** Opening any popover closes the others (`hypr-ui/bin/hypr-ui-solo`).
