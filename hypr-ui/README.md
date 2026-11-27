@@ -17,6 +17,7 @@ keep frames and shadows identical everywhere.
 | **hyprpower** | battery details, power profile, Dell charge mode, brightness, keyboard light, monitor layout (extend/mirror/placement/scale) | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprpower --daemon`) | `~/code/hyprland-widgets/hyprpower` | waybar `battery` click, `SUPER CTRL P` | popover (`hyprpower`), toast (`hyprpower-toast`), identify (`hyprpower-identify`) | yes |
 | **hyprtheme** | theme picker with in-picker preview, wallpapers and undo | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprtheme --daemon`) | `~/code/hyprland-widgets/hyprtheme` | `SUPER CTRL SHIFT SPACE` (`omarchy-theme-menu`) | full-screen picker (`hyprtheme`), undo toast (`hyprtheme-toast`) | yes, painted in the highlighted theme while browsing |
 | **hyprmenu** | start menu: most-used apps (by focus time), the Omarchy menu, search over both, power row | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprmenu --daemon`, also measures app usage) | `~/code/hyprland-widgets/hyprmenu` | `SUPER SPACE` (apps), `SUPER ALT SPACE` (menu) | overlay card (`hyprmenu`) | yes |
+| **hyprbell** | notification history: logs every notification (session-bus monitor), panel grouped by day, filter, search, open, copy, do-not-disturb | GTK4 + gtk4-layer-shell (Python daemon, `exec-once hyprbell --daemon`, also the logger) | `~/code/hyprland-widgets/hyprbell` | waybar `custom/hyprbell` click (right-click: do-not-disturb), `SUPER CTRL N` | panel docked to the right edge, full height (`hyprbell`) | yes |
 | **hyprlogin** | SDDM login screen: clock, avatar, password, session chooser, power row | SDDM theme (QML, Qt 6), run by `sddm-greeter-qt6` under weston | `~/code/hyprland-widgets/hyprlogin` | the login screen; `hyprlogin preview` to see it | full screen | yes, its own `Theme.qml` mirrors the tokens; `hyprlogin sync` copies the theme colours into the SDDM theme |
 | **hyprspot** | Spotify mini player | GTK4 (Python) | `~/code/hyprspot` ([own repo](https://github.com/eduPHP/hyprspot)) | always on, bottom-right | pill + expanded card (`hyprspot`, Hyprland blur rule) | no, separate project with its own look |
 
@@ -70,6 +71,8 @@ skill/SKILL.md         Claude Code skill (/hypr-ui), linked at ~/.claude/skills/
    | hyprcal | `hyprcal.open` | `hyprcal close` |
    | hyprpower | `hyprpower.open` | `hyprpower close` |
    | hyprtheme | `hyprtheme.open` | `hyprtheme close` |
+   | hyprmenu | `hyprmenu.open` | `hyprmenu close` |
+   | hyprbell | `hyprbell.open` | `hyprbell close` |
 
 ## Components
 

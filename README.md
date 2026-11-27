@@ -20,6 +20,7 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 | 🎵 | [`hyprspot`](https://github.com/eduPHP/hyprspot) | Spotify mini-player with playlists and search, driven by Spotify's headless Connect client | GTK4 + gtk4-layer-shell, Spotify Soloist |
 | 🎨 | [`hypr-ui`](hypr-ui) | the shared design system: `tokens.json` → GTK CSS + Python helpers + a QML singleton | Python build script |
 | 🖼️ | [`hyprtheme`](hyprtheme) | theme picker: previews a theme and its wallpapers inside itself, fuzzy search, dark/light/favorite filters, undo after applying | GTK4 + gtk4-layer-shell |
+| 🔔 | [`hyprbell`](hyprbell) | notification history: every notification logged with its time, in a panel at the right edge, grouped by day, filter by app, search, open, copy; mako's popups stay as they are | GTK4 + gtk4-layer-shell, D-Bus monitor |
 | 🚀 | [`hyprmenu`](hyprmenu) | start menu on Super+Space: most-used apps by focus time, the Omarchy menu, search over both, power row | GTK4 + gtk4-layer-shell |
 | 🔐 | [`hyprlogin`](hyprlogin) | SDDM login screen laid out like the lock screen: clock, avatar and password field on the blurred wallpaper, session and power below; follows the Omarchy theme | SDDM theme (QML, Qt 6) |
 | 🔒 | [`hyprlock-theme`](hyprlock-theme) | hyprlock lock screen to match hyprlogin: the same clock, blurred wallpaper and avatar, the field straight on the wallpaper, caps/checking/wrong-password states; follows the Omarchy theme | hyprlock config generator (Python) |
@@ -43,6 +44,7 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
 <td><img src="docs/screenshots/power.png" alt="hyprpower power tab: battery, discharge graph, health, top apps, power profile, charging and automation"></td>
 <td><img src="docs/screenshots/display.png" alt="hyprpower display tab: brightness, keyboard light, night light, monitor layout, mode and scale"></td>
 </tr>
+<tr><td colspan="3" align="center"><img width="440" src="docs/screenshots/hyprbell.png" alt="hyprbell: notification history grouped by day, the newest expanded with open, copy and delete"></td></tr>
 <tr>
 <td><img src="docs/screenshots/sound.png" alt="sound widget: output and input, level meter, output devices, now playing and per-app volume"></td>
 <td><img src="docs/screenshots/bt.png" alt="hyprbt: bluetooth toggle, scan, paired headphones"></td>
@@ -61,6 +63,8 @@ same JetBrainsMono Nerd Font, same 1px frame, keyboard-first everywhere.
   and avatar (`hyprlock-theme/install.sh` once, no root; it backs up your old `hyprlock.conf`).
 - **A start menu.** Super+Space opens [`hyprmenu`](hyprmenu): your most-used apps (by time in focus), the
   Omarchy menu, and a search over both. Super+Alt+Space opens it on the menu side.
+- **Notification history.** Super+Ctrl+N or the bell next to the clock opens [`hyprbell`](hyprbell): every
+  notification from the last 30 days with its time, even the ones do-not-disturb silenced.
 - **One at a time.** Opening any popover closes the others (`hypr-ui/bin/hypr-ui-solo`).
 - **Resident daemons.** The GTK widgets stay running and toggle instantly; waybar modules call
   `<widget>` on click and `<widget> --status` for their bar text.
@@ -84,12 +88,12 @@ It also links the [`hyprtheme`](hyprtheme) picker (`webp-pixbuf-loader` lets it 
 git clone https://github.com/eduPHP/hyprland-widgets.git ~/code/hyprland-widgets
 cd ~/code/hyprland-widgets
 ln -s "$PWD/hypr-ui" ~/.config/hypr-ui
-for w in wifi-widget sound-widget hyprcal hyprpower hyprmenu; do ln -s "$PWD/$w/$w" ~/.local/bin/$w; done
+for w in wifi-widget sound-widget hyprcal hyprpower hyprmenu hyprbell; do ln -s "$PWD/$w/$w" ~/.local/bin/$w; done
 ln -s "$PWD/hyprbt" ~/.config/quickshell/hyprbt
 ```
 
 Then wire them to waybar and Hyprland. The [hypr-ui README](hypr-ui/README.md) lists every widget's
-waybar module and keybinding, and the hyprcal, hyprpower and hyprbt READMEs have the full snippets. For example, in `~/.config/hypr/autostart.conf`:
+waybar module and keybinding, and the hyprcal, hyprpower, hyprbell and hyprbt READMEs have the full snippets. For example, in `~/.config/hypr/autostart.conf`:
 
 ```ini
 exec-once = sound-widget --daemon
@@ -97,15 +101,17 @@ exec-once = hyprcal --daemon
 exec-once = hyprpower --daemon
 exec-once = hyprtheme --daemon
 exec-once = hyprmenu --daemon
+exec-once = hyprbell --daemon
 exec-once = qs -c hyprbt -d
 ```
 
-Keybindings for the theme picker and the start menu, in `~/.config/hypr/bindings.conf` (or wherever your binds live):
+Keybindings for the theme picker, the start menu and the notification history, in `~/.config/hypr/bindings.conf` (or wherever your binds live):
 
 ```ini
 bindd = SUPER CTRL SHIFT, SPACE, Pick theme, exec, hyprtheme
 bindd = SUPER, SPACE, Start menu, exec, hyprmenu
 bindd = SUPER ALT, SPACE, Start menu (Omarchy menu), exec, hyprmenu menu
+bindd = SUPER CTRL, N, Notification history, exec, hyprbell
 ```
 
 ## Secrets stay out
