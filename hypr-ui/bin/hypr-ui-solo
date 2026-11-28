@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # hypr-ui-solo <name>: close every hypr-ui popover except <name>.
 # Each widget runs this as it opens, so only one popover is on screen at a time.
-# Names: wifi, sound, hyprbt, hyprcal, hyprpower, hyprtheme, hyprmenu.
+# Names: wifi, sound, hyprbt, hyprcal, hyprpower, hyprtheme, hyprmenu, hyprbell.
 me=${1:-}
 run=${XDG_RUNTIME_DIR:-/tmp}
 
@@ -26,5 +26,8 @@ if [[ $me != hyprtheme && -e $run/hyprtheme.open ]]; then
 fi
 if [[ $me != hyprmenu && -e $run/hyprmenu.open ]]; then
   hyprmenu close >/dev/null 2>&1 &
+fi
+if [[ $me != hyprbell && -e $run/hyprbell.open ]]; then
+  hyprbell close >/dev/null 2>&1 &
 fi
 wait

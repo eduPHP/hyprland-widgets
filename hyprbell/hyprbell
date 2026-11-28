@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""hyprbell: notification history for Hyprland (hypr-ui look). mako keeps showing the popups;
+hyprbell logs every notification and shows them in a panel at the right edge of the screen.
+Kept free of GTK imports so binds stay fast.
+
+  hyprbell                 toggle the history panel (starts the daemon on first run)
+  hyprbell open            open if closed
+  hyprbell close           close if open (never starts the daemon)
+  hyprbell dnd             toggle mako's do-not-disturb mode
+  hyprbell quit            stop the daemon
+  hyprbell --daemon        run the resident process: the logger and the panel (Hyprland exec-once)
+  hyprbell --status        stream JSON lines for a waybar custom module
+  hyprbell log [n]         print the last n notifications (default 20)
+  hyprbell key NAME...     press keys in the open panel (GDK names: j, Return, slash; for screenshots)
+  hyprbell search TEXT     search in the open panel (for screenshots)
+"""
+
+import json
+import os
+import socket
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+HERE = Path(os.path.realpath(__file__)).parent
+sys.path.insert(0, str(HERE))
+import store  # noqa: E402  (no GTK in here)
+
+SOCK = store.RUN / "hyprbell.sock"
+OPEN_FLAG = store.RUN / "hyprbell.open"
+LAYER_SHELL = "/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0"
+BELL, BELL_OFF = "\U000f009a", "\U000f009b"
+WAYBAR_ACTIONS_SIGNAL = 11  # actions-bar's indicators (custom/act-dnd) refresh on this
+
+
+def send(cmd: str) -> bool:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.connect(str(SOCK))
+        s.sendall(cmd.encode())
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def start_daemon():
+    subprocess.Popen([sys.executable, os.path.realpath(__file__), "--daemon"], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def daemon():
+    # gtk4-layer-shell must be loaded before libwayland-client
+    if LAYER_SHELL not in os.environ.get("LD_PRELOAD", ""):
+        os.environ["LD_PRELOAD"] = ":".join(filter(None, [LAYER_SHELL, os.environ.get("LD_PRELOAD")]))
+        os.execv(sys.executable, [sys.executable, os.path.realpath(__file__), *sys.argv[1:]])
+    if send("ping"):
+        sys.exit("hyprbell daemon already running")
+    import widget
+
+    widget.main(SOCK)
+
+
+def dnd_on() -> bool:
+    try:
+        out = subprocess.run(["makoctl", "mode"], capture_output=True, text=True, timeout=2).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return store.DND_MODE in out.split()
+
+
+def toggle_dnd():
+    subprocess.run(["makoctl", "mode", "-t", store.DND_MODE], capture_output=True, timeout=2)
+    subprocess.run(["pkill", f"-RTMIN+{WAYBAR_ACTIONS_SIGNAL}", "-x", "waybar"], capture_output=True)
+
+
+def ago(ts: float, now: float) -> str:
+    s = max(0, int(now - ts))
+    if s < 60:
+        return "now"
+    if s < 3600:
+        return f"{s // 60}m"
+    if datetime.fromtimestamp(ts).date() == datetime.fromtimestamp(now).date():
+        return f"{s // 3600}h"
+    return datetime.fromtimestamp(ts).strftime("%d %b %H:%M").lower()
+
+
+def status():
+    """One JSON line whenever the bell's text, tooltip or classes change."""
+    from html import escape
+
+    try:  # tooltip colours come from hypr-ui, like everything else
+        tok = json.loads((Path.home() / ".local/state/hypr-ui/theme.json").read_text())["color"]
+    except (OSError, ValueError, KeyError):
+        tok = {}
+    muted, faint = tok.get("muted", "#737aa2"), tok.get("faint", "#565f89")
+    stamp = None
+    entries: list = []
+    dnd, dnd_at = False, 0.0
+    last = ""
+    while True:
+        now = time.time()
+        try:
+            st = (store.HISTORY.stat().st_mtime, store.SEEN.stat().st_mtime if store.SEEN.exists() else 0)
+        except OSError:
+            st = (0, 0)
+        if st != stamp:
+            stamp = st
+            entries = store.load()
+        if now - dnd_at >= 2:
+            dnd, dnd_at = dnd_on(), now
+        new = store.unread(entries)
+        is_open = OPEN_FLAG.exists()
+        cls = ["dnd"] if dnd else []
+        if new and not is_open:
+            cls.append("unread")
+        if is_open:
+            cls.append("open")
+        text = (BELL_OFF if dnd else BELL) + (f" {len(new)}" if new and not is_open else "")
+        lines = ["<b>notifications</b>" + (f"  <span color='{muted}'>· do not disturb</span>" if dnd else "")]
+        if new:
+            lines.append(f"<span color='{muted}'>{len(new)} new since you last looked</span>")
+        for e in reversed(entries[-3:]):
+            lines.append(f"<span color='{muted}'>{escape(ago(e['ts'], now))}</span>  "
+                         f"{escape(e.get('summary') or e.get('app', ''))}  <span color='{faint}'>{escape(e.get('app', ''))}</span>")
+        if not entries:
+            lines.append(f"<span color='{faint}'>nothing logged yet</span>")
+        lines.append(f"<span color='{faint}'>click: history · right: do not disturb</span>")
+        out = json.dumps({"text": text, "tooltip": "\n".join(lines), "class": cls}, ensure_ascii=False)
+        if out != last:
+            print(out, flush=True)
+            last = out
+        time.sleep(1.0)
+
+
+def log(n: int):
+    now = time.time()
+    for e in store.load()[-n:]:
+        body = store.plain(e.get("body", "")).replace("\n", " ")
+        print(f"{ago(e['ts'], now):>14}  {e.get('app', ''):<16} {e.get('summary', '')}" + (f" · {body[:80]}" if body else ""))
+
+
+def main():
+    args = sys.argv[1:]
+    if args[:1] == ["--daemon"]:
+        return daemon()
+    if args[:1] == ["--status"]:
+        try:
+            return status()
+        except (BrokenPipeError, KeyboardInterrupt):
+            return
+    if args[:1] == ["dnd"]:
+        return toggle_dnd()
+    if args[:1] == ["log"]:
+        return log(int(args[1]) if len(args) > 1 and args[1].isdigit() else 20)
+    if args in (["-h"], ["--help"], ["help"]):
+        return print(__doc__)
+
+    cmd = args or ["toggle"]
+    if cmd[0] not in ("toggle", "open", "close", "quit", "key", "search"):
+        sys.exit(__doc__)
+    line = " ".join(cmd)
+    if send(line) or cmd[0] in ("close", "quit", "key", "search"):
+        return
+    start_daemon()
+    for _ in range(60):
+        time.sleep(0.1)
+        if send(line):
+            return
+    sys.exit("hyprbell daemon did not start")
+
+
+if __name__ == "__main__":
+    main()

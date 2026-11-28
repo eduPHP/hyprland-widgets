@@ -1,0 +1,114 @@
+/* hyprbell: only what is specific to the history panel.
+ * Colours, the frame, header, icon buttons, rows, badges, entry and the key-hint footer
+ * come from the shared hypr-ui stylesheet, loaded first by hypr_ui.load_css. */
+
+.c-blue { color: @blue; }
+.c-cyan { color: @cyan; }
+.c-purple { color: @purple; }
+.c-green { color: @green; }
+.c-amber { color: @amber; }
+.c-orange { color: @orange; }
+.c-red { color: @red; }
+
+/* header buttons with a state */
+button.icon.on { color: @amber; background: alpha(@amber, 0.16); }
+button.icon.warn { color: @red; background: alpha(@red, 0.14); }
+
+/* do not disturb card */
+.dnd-card {
+  background: mix(@surface, @amber, 0.12);
+  border: 1px solid mix(@line, @amber, 0.45);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.dnd-icon { color: @amber; font-size: 15px; }
+.dnd-text { font-size: 11px; }
+.dnd-card switch:checked { background: @amber; }
+.dnd-card switch:checked slider { background: @ink; }
+
+/* app filter chips */
+.chips { margin: 0; }
+button.chip {
+  background: none;
+  border: 1px solid @line;
+  border-radius: 7px;
+  box-shadow: none;
+  padding: 2px 9px;
+  min-height: 0;
+}
+button.chip label { color: @muted; font-size: 11px; }
+button.chip .count { color: @faint; }
+button.chip:hover label { color: @fg; }
+button.chip.sel { border-color: @blue; background: alpha(@blue, 0.12); }
+button.chip.sel label { color: @blue; }
+
+/* the list */
+.list-scroll { background: none; }
+.list-scroll scrollbar { background: none; border: none; }
+.list-scroll scrollbar slider { background: @track; min-width: 4px; border-radius: 99px; }
+.day { padding: 8px 2px 4px; }
+.row.note { border-radius: 10px; padding: 8px; }
+.row.note:hover { background: @surface; }
+.row.note.selected { background: @surface; border-color: @frame; }
+.row.note.crit { box-shadow: inset 2px 0 @red; }
+.row.note.fresh { background: alpha(@blue, 0.22); }
+
+.tile {
+  background: @raised;
+  border-radius: 8px;
+  min-width: 30px;
+  min-height: 30px;
+  font-size: 11px;
+  font-weight: bold;
+}
+.dot {
+  background: @blue;
+  border: 2px solid @bg;
+  border-radius: 99px;
+  min-width: 6px;
+  min-height: 6px;
+  margin: -2px -2px 0 0;
+}
+.row.note.selected .dot, .row.note:hover .dot { border-color: @surface; }
+
+.sum { font-weight: bold; color: @bright; }
+.tm { color: @faint; font-size: 10px; }
+.body { color: @muted; font-size: 11px; }
+.row.note.selected .body { color: @fg; }
+.meta { color: @faint; font-size: 10px; }
+.badge.crit { color: @red; background: alpha(@red, 0.18); }
+.badge.live { color: @green; background: alpha(@green, 0.18); }
+.badge.dnd { color: @amber; background: alpha(@amber, 0.18); }
+.badge.stack { color: @fg; background: @raised; }
+
+.earlier { border-left: 2px solid @line; padding-left: 8px; margin-top: 4px; }
+
+.acts { margin-top: 6px; }
+button.act {
+  background: none;
+  border: 1px solid @line;
+  border-radius: 7px;
+  box-shadow: none;
+  padding: 3px 9px;
+  min-height: 0;
+}
+button.act label { font-size: 11px; }
+button.act:hover { border-color: @frame; }
+button.act.primary { background: @blue; border-color: @blue; }
+button.act.primary label { color: @ink; font-weight: bold; }
+button.act.primary .key { background: alpha(@ink, 0.25); color: @ink; }
+button.act.danger:hover { border-color: @red; }
+button.act.danger:hover label { color: @red; }
+
+/* empty states */
+.empty { padding: 36px 12px; }
+.empty-icon {
+  background: @surface;
+  border-radius: 14px;
+  min-width: 52px;
+  min-height: 52px;
+  color: @faint;
+  font-size: 22px;
+}
+.empty-title { font-weight: bold; }
+.empty-text { color: @muted; font-size: 11px; }
